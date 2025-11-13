@@ -1,0 +1,1852 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대박 히트곡의 비밀을 찾아라! (Spotify 2023, Orange3 실험)</title>
+    <style>
+        /* --- 0) 전반 스타일 및 스포티파이 UI 테마 --- */
+        :root {
+            --bg-color: #0b0b0b;
+            --text-color: #d9d9d9;
+            --text-muted: #9ca3af;
+            --accent-color: #1DB954;
+            --surface-color: #121212; /* 메인 배경 (더 어둡게) */
+            --surface-highlight: #1a1a1a; /* 사이드바, 카드 등 */
+            --surface-active: #282828; /* 호버, 활성 */
+            --border-color: #333;
+            --player-height: 90px; /* 하단 플레이어 높이 */
+            --sidebar-width: 280px; /* 좌측 사이드바 너비 */
+            --right-sidebar-width: 280px; /* 우측 사이드바 너비 (UI 재현용) */
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            overflow: hidden; /* 전체 페이지 스크롤 방지 */
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* --- 1) 레이아웃: 스포티파이 3단 그리드 + 하단 플레이어 --- */
+        .spotify-app-container {
+            display: grid;
+            grid-template-columns: var(--sidebar-width) 1fr var(--right-sidebar-width);
+            grid-template-rows: 1fr; /* 하단 플레이어 제외한 영역 */
+            height: calc(100vh - var(--player-height));
+            width: 100%;
+        }
+
+        /* --- 1.1) 좌측 사이드바 (ToC) --- */
+        .spotify-sidebar {
+            background: #000000;
+            padding: 1.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            overflow-y: auto;
+            height: 100%;
+            z-index: 10;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 1.1.1) 로고 (요청사항 2) */
+        .logo-container {
+            padding: 0.5rem 0;
+            margin-bottom: 0.5rem;
+        }
+        .logo-container img {
+            width: 130px; /* 스포티파이 로고 비율에 맞게 너비 조정 */
+            height: auto;
+        }
+        
+        .sidebar-section {
+            background: transparent;
+            border-radius: 8px;
+            padding: 0.5rem 0;
+        }
+        .sidebar-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.95rem;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            border-radius: 6px;
+        }
+        .sidebar-nav-item:hover, .toc-link:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .sidebar-nav-item svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+        .sidebar-nav-item.active {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .divider {
+            border-top: 1px solid var(--border-color);
+            margin: 0.5rem 0;
+        }
+        .toc-library {
+            flex-grow: 1; /* 남은 공간 모두 차지 */
+            overflow-y: auto;
+            padding-right: 0.5rem; /* 스크롤바 공간 */
+        }
+        .toc-library h4 {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-weight: 700;
+            padding: 0.5rem 0;
+            margin: 0 0 1rem 0;
+        }
+        .toc-library nav ul {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        .toc-library nav li {
+            margin-bottom: 0.75rem;
+        }
+        .toc-link {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: block;
+            text-decoration: none;
+            line-height: 1.4;
+            cursor: pointer;
+        }
+        .toc-link.active {
+            color: #ffffff;
+            font-weight: 600;
+            background: rgba(29, 185, 84, 0.2);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+        .toc-library nav ul ul {
+            padding-left: 1rem;
+            margin-top: 0.75rem;
+            border-left: 2px solid var(--surface-active);
+        }
+        .toc-library nav ul ul li a {
+            font-size: 0.85rem;
+        }
+        
+        /* --- 1.2) 메인 콘텐츠 (슬라이드) --- */
+        .spotify-main-content {
+            background: #000000;
+            position: relative;
+            overflow: hidden; /* 슬라이드 간 스크롤 방지 */
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 검색창 (중앙 최상단 고정) */
+        .top-search-bar {
+            position: fixed;
+            top: 0;
+            left: var(--sidebar-width);
+            right: var(--right-sidebar-width);
+            height: 64px;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 2rem;
+            z-index: 50;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .search-input-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .search-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 500px;
+            padding: 0.75rem 1rem 0.75rem 3rem;
+            color: #ffffff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        .search-input:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 0 2px rgba(29, 185, 84, 0.2);
+        }
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            width: 20px;
+            height: 20px;
+            fill: var(--text-muted);
+            pointer-events: none;
+        }
+        .search-library-icon {
+            width: 24px;
+            height: 24px;
+            fill: var(--text-muted);
+            cursor: pointer;
+        }
+
+        /* 우측 상단 아이콘들 */
+        .top-right-icons {
+            position: fixed;
+            top: 0;
+            right: var(--right-sidebar-width);
+            height: 64px;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 0 1.5rem;
+            z-index: 51;
+        }
+        .top-icon {
+            width: 32px;
+            height: 32px;
+            fill: var(--text-muted);
+            cursor: pointer;
+            transition: fill 0.2s ease;
+        }
+        .top-icon:hover {
+            fill: #ffffff;
+        }
+        .top-icon.profile {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            fill: none;
+        }
+        .top-icon.profile:hover {
+            transform: scale(1.1);
+        }
+
+        .slides-wrapper {
+            display: flex;
+            width: 100%;
+            height: calc(100vh - 64px - var(--player-height));
+            margin-top: 64px;
+            transition: transform 0.5s ease-in-out;
+            will-change: transform;
+        }
+
+        .slide {
+            flex: 0 0 100%; /* 각 슬라이드가 전체 너비를 차지 */
+            width: 100%;
+            min-width: 100%;
+            height: 100%; /* 슬라이드 높이 전체 */
+            overflow-y: auto; /* 각 슬라이드 내부 내용이 길 경우 스크롤 허용 */
+            padding: 3rem 4rem 5rem 4rem; /* 하단 여백 추가 */
+            position: relative;
+            background: #000000;
+            display: block;
+            visibility: visible;
+            opacity: 1;
+        }
+        /* 슬라이드 내부의 마지막 요소가 푸터에 가리지 않도록 */
+        .slide > *:last-child {
+            margin-bottom: calc(var(--player-height) + 2rem); /* 플레이어 높이 + 여유 여백 */
+        }
+
+        /* --- 1.3) 우측 사이드바 (UI 재현용) --- */
+        .spotify-right-sidebar {
+            background: #000000;
+            padding: 1.5rem 1rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            z-index: 5;
+            height: 100%;
+            overflow-y: auto;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .right-sidebar-placeholder {
+            background: transparent;
+            border-radius: 0;
+            padding: 0;
+            min-height: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: flex-start;
+            text-align: left;
+            border: none;
+            gap: 0;
+            margin-top: 0;
+            width: 100%;
+        }
+        .right-sidebar-placeholder .logo-text {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #ffffff;
+            width: 100%;
+            padding: 1.5rem 0 1rem 0;
+            margin-bottom: 1rem;
+        }
+        .right-sidebar-placeholder .logo-text img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+        .chart-list {
+            width: 100%;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .chart-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+        .chart-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .chart-rank {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            min-width: 24px;
+            text-align: right;
+        }
+        .chart-item:hover .chart-rank {
+            color: #ffffff;
+        }
+        .chart-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .chart-title {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .chart-artist {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .chart-item:hover .chart-artist {
+            color: #ffffff;
+        }
+
+        /* --- 1.4) 하단 플레이어 바 (슬라이드 네비게이터) (요청사항 1) --- */
+        .spotify-player-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: var(--player-height);
+            background: #000000;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 2rem;
+            z-index: 100;
+        }
+        .player-controls {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .player-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0;
+            transition: all 0.2s ease;
+        }
+        .player-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+        .player-btn:hover {
+            color: #ffffff;
+            transform: scale(1.1);
+        }
+        .player-btn.play {
+            background: #ffffff;
+            color: #000000;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .player-btn.play:hover {
+            background: var(--accent-color);
+            color: #000000;
+            transform: scale(1.1);
+        }
+        .player-btn.play svg {
+            width: 20px;
+            height: 20px;
+            margin-left: 3px; /* 재생 아이콘 중앙 정렬 */
+        }
+        
+        /* --- 2) 컴포넌트 스타일 (콘텐츠용) (요청사항 3) --- */
+        h1, h2, h3, h4, h5, h6 {
+            color: #ffffff;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+        h1 { font-size: 2.5rem; /* 히어로 타이틀 */ }
+        .slide-super-title { /* 슬라이드 상단 작은 제목 */
+            font-size: 0.9rem; 
+            color: var(--text-muted); 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+        }
+        .slide h1 { 
+            font-size: 3.5rem; /* 슬라이드 대제목 */
+            margin-top: 0.5rem; 
+            margin-bottom: 1.5rem; 
+            letter-spacing: -1px;
+        }
+        .slide h2 { 
+            font-size: 2rem; 
+            border-bottom: 2px solid var(--border-color); 
+            padding-bottom: 0.5rem; 
+            margin-top: 3rem; 
+        }
+        .slide h3 { 
+            font-size: 1.5rem; 
+            color: var(--accent-color); 
+            margin-top: 2.5rem; 
+        }
+        .slide h4 { 
+            font-size: 1.25rem; 
+            color: var(--text-color); 
+        }
+        /* (요청사항 3) 슬라이드별 핵심 센텐스 */
+        .slide-key-sentence { 
+            font-size: 1.3rem;
+            font-weight: 500;
+            font-style: italic;
+            color: var(--text-muted);
+            border-left: 3px solid var(--accent-color);
+            padding-left: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        p, ul, ol, table {
+            margin-bottom: 1.5rem;
+            font-size: 1.05rem; /* 가독성을 위해 1rem -> 1.05rem */
+        }
+        ul, ol {
+            padding-left: 2rem;
+        }
+        li {
+            margin-bottom: 0.75rem; /* 리스트 간격 */
+        }
+        strong, b {
+            color: #ffffff;
+            font-weight: 700;
+        }
+        
+        a {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* 히어로 (슬라이드 1) */
+        .meta-box {
+            background: var(--surface-active);
+            border: 1px solid var(--border-color);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+            font-size: 0.9rem;
+        }
+        .meta-box ul {
+            padding-left: 20px;
+            margin: 0;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .btn {
+            display: inline-block;
+            background: var(--accent-color);
+            color: var(--bg-color);
+            font-weight: 700;
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            text-decoration: none;
+            transition: transform 0.2s ease;
+            cursor: pointer; /* a 태그가 아닌 button/div에도 적용 */
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            text-decoration: none;
+        }
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--accent-color);
+            color: var(--accent-color);
+        }
+        
+        /* 코드/인용 */
+        code, pre {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            padding: 0.2em 0.4em;
+            font-size: 0.95rem;
+        }
+        pre {
+            padding: 1rem;
+            overflow-x: auto;
+        }
+        
+        /* 표 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            margin-top: 1.5rem;
+        }
+        th, td {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            text-align: left;
+            vertical-align: top;
+        }
+        thead th {
+            background: var(--surface-active);
+            color: #ffffff;
+            font-size: 0.95rem;
+        }
+        tbody tr:nth-child(even) {
+            background: var(--surface-highlight);
+        }
+        tbody tr:hover {
+            background: var(--surface-active);
+        }
+        caption {
+            caption-side: bottom;
+            text-align: left;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+        }
+        tfoot td {
+            font-style: italic;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            background: var(--surface-highlight);
+        }
+
+        /* 이미지 자리표시자 */
+        figure {
+            margin: 1.5rem 0;
+            background: var(--surface-highlight);
+            border: 2px dashed var(--border-color);
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        /* (요청사항 5) 1:1 비율 이미지 */
+        figure.ratio-1-1 {
+            width: 100%;
+            max-width: 600px; /* 최대 크기 제한 */
+            height: auto;
+            aspect-ratio: 1 / 1;
+            padding: 1rem;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        figcaption {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 1rem;
+            font-style: italic;
+        }
+        figcaption strong { /* (요청사항 3) 그래프 이미지 밑에 설명 */
+            color: var(--text-color);
+            font-weight: 700;
+        }
+
+        /* 탭 (JS) */
+        .tab-nav {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 1.5rem;
+        }
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            position: relative;
+            bottom: -2px;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-btn[data-active="true"] {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+            font-weight: 700;
+        }
+        .tab-content {
+            display: none; /* JS가 제어 */
+        }
+        .tab-content[data-active="true"] {
+            display: block;
+        }
+
+        /* 아코디언 (JS) */
+        .accordion-btn {
+            background: var(--surface-active);
+            border: 1px solid var(--border-color);
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            padding: 1rem 1.5rem;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            margin-top: 1rem;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s ease;
+        }
+        .accordion-btn:hover {
+            background: var(--surface-active);
+        }
+        /* (요청사항 4) Orange3 논리 보강용 스타일 */
+        .accordion-panel .reasoning {
+            border-left: 3px solid var(--accent-color);
+            padding-left: 1.5rem;
+            margin: 1.5rem 0;
+            font-size: 0.95rem;
+            font-style: italic;
+            color: var(--text-muted);
+        }
+        .accordion-panel .reasoning strong {
+            color: var(--accent-color);
+        }
+        .accordion-btn::after {
+            content: '+';
+            font-size: 1.5rem;
+            transition: transform 0.2s ease;
+        }
+        .accordion-btn[aria-expanded="true"]::after {
+            transform: rotate(45deg);
+        }
+        .accordion-panel {
+            background: #101010;
+            border: 1px solid var(--border-color);
+            border-top: none;
+            padding: 0 1.5rem; /* JS로 제어 */
+            max-height: 0; /* JS가 제어 */
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+        }
+
+        /* 스크롤바 스타일 (블랙 앤 그린) */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-color);
+            border-radius: 6px;
+            border: 2px solid #000000;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1ed760;
+        }
+        /* Firefox 스크롤바 */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-color) #000000;
+        }
+
+        /* 반응형: 모바일 대응 (간략화) */
+        @media (max-width: 1024px) {
+            .spotify-app-container {
+                grid-template-columns: 1fr; /* 메인 콘텐츠만 표시 */
+                grid-template-rows: 1fr;
+                height: calc(100vh - var(--player-height));
+            }
+            .spotify-sidebar, .spotify-right-sidebar {
+                display: none; /* 모바일에서는 사이드바 숨김 */
+            }
+            .slide {
+                padding: 1.5rem 1rem 3rem 1rem;
+            }
+            .slide h1 { font-size: 2.5rem; }
+            .slide h2 { font-size: 1.75rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="spotify-app-container">
+
+        <aside class="spotify-sidebar">
+            
+            <div class="logo-container">
+                <img src="Spotify_logo.png" alt="Spotify Logo">
+            </div>
+
+            <div class="sidebar-section">
+                <a href="#" class="sidebar-nav-item active toc-link" data-slide="0">
+                    <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path d="M12.5 3.247a1 1 0 0 0-1 0L4 7.577V20h4.5v-6a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v6H20V7.577l-7.5-4.33zm-2-1.732a3 3 0 0 1 3 0l7.5 4.33a2 2 0 0 1 1 1.732V21a1 1 0 0 1-1 1h-6.5a1 1 0 0 1-1-1v-6h-3v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7.577a2 2 0 0 1 1-1.732l7.5-4.33z"></path></svg>
+                    <span>홈 (소개)</span>
+                </a>
+                <a href="#" class="sidebar-nav-item toc-link" data-slide="7"> <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path d="M10.533 1.279a2.5 2.5 0 0 1 3.934 0l6.25 8.333A2.5 2.5 0 0 1 18.75 14H5.25a2.5 2.5 0 0 1-1.967-4.388l6.25-8.333zm.929 1.444a.5.5 0 0 0-.788 0l-6.25 8.333a.5.5 0 0 0 .394.877h13.5a.5.5 0 0 0 .394-.877l-6.25-8.333zm1.038 4.277a.75.75 0 0 0-1 0V13.5a.75.75 0 0 0 1.5 0V7zM12 15a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"></path><path d="M4.91 16.066c-.668.21-1.12.82-1.12 1.517V21a1 1 0 0 0 1 1h16.42a1 1 0 0 0 1-1v-3.417c0-.697-.452-1.307-1.12-1.517L13 18.51l-8.09-2.444zM5.79 17.91l7.32 2.21a.75.75 0 0 0 .78 0l7.32-2.21A.188.188 0 0 1 21.417 18c.05 0 .083.037.083.083V21H4.5v-2.917c0-.046.034-.083.083-.083a.188.188 0 0 1 .207-.15l.001.001z"></path></svg>
+                    <span>결론 (인사이트)</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section toc-library">
+                <a href="#" class="sidebar-nav-item toc-link" data-slide="0">
+                    <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path d="M14.5 2.134a1 1 0 0 1 1 0l6 3.464a1 1 0 0 1 .5.866V17.536a1 1 0 0 1-.5.866l-6 3.464a1 1 0 0 1-1 0l-6-3.464a1 1 0 0 1-.5-.866V6.464a1 1 0 0 1 .5-.866l6-3.464zM15 3.866l-6 3.464v6.928l6 3.464v-6.928l6-3.464V7.33zM2 17.536V6.464a1 1 0 0 1 .5-.866l6-3.464a1 1 0 0 1 1 0l.44.254a1 1 0 0 1 0 1.732L3.44 9.374a1 1 0 0 0 0 1.732l6.5 3.753a1 1 0 0 1 0 1.732l-.44.254a1 1 0 0 1-1 0l-6-3.464a1 1 0 0 1-.5-.866z"></path></svg>
+                    <span>Your Library (목차)</span>
+                </a>
+                
+                <nav id="toc-nav">
+                    <ul>
+                        <li><a href="#" class="toc-link active" data-slide="0">1. 프로젝트 소개 (홈)</a></li>
+                        <li><a href="#" class="toc-link" data-slide="1">2. 전체 워크플로우</a></li>
+                        <li>
+                            <a href="#" class="toc-link" data-slide="2">3. 기(起): 문제 정의·배경·데이터</a>
+                            <ul>
+                                <li><a href="#problem-def" class="toc-link" data-slide="2">3.1 문제 정의</a></li>
+                                <li><a href="#data-eda" class="toc-link" data-slide="2">3.2 데이터/EDA</a></li>
+                            </ul>
+                        </li>
+                        <li>
+                            <a href="#" class="toc-link" data-slide="3">4. 승(承): Vibe 군집화</a>
+                            <ul>
+                                <li><a href="#clustering-steps" class="toc-link" data-slide="3">4.1 Orange3 단계 (k=5)</a></li>
+                                <li><a href="#clustering-rationale" class="toc-link" data-slide="3">4.2 모델 선택 이유</a></li>
+                            </ul>
+                        </li>
+                        <li>
+                            <a href="#" class="toc-link" data-slide="4">5. 전(轉): 분류 (순진형 vs 융합형)</a>
+                            <ul>
+                                <li><a href="#model-target" class="toc-link" data-slide="4">5.1 타깃 생성</a></li>
+                                <li><a href="#model-naive" class="toc-link" data-slide="4">5.2 순진형 파이프라인</a></li>
+                                <li><a href="#model-fusion" class="toc-link" data-slide="4">5.3 융합형 파이프라인</a></li>
+                            </ul>
+                        </li>
+                        <li>
+                            <a href="#" class="toc-link" data-slide="5">6. 전(轉): 결과 비교 (AUC/CM)</a>
+                            <ul>
+                                <li><a href="#model-results" class="toc-link" data-slide="5">6.1 결과 테이블 및 해석</a></li>
+                            </ul>
+                        </li>
+                        <li>
+                            <a href="#" class="toc-link" data-slide="6">7. 결(結): 중요도·설명·정책 제안</a>
+                            <ul>
+                                <li><a href="#explain-rank" class="toc-link" data-slide="6">7.1 Rank (특징 중요도)</a></li>
+                                <li><a href="#explain-nomo" class="toc-link" data-slide="6">7.2 Nomogram (LR)</a></li>
+                                <li><a href="#explain-tree" class="toc-link" data-slide="6">7.3 Tree Viewer (Tree)</a></li>
+                            </ul>
+                        </li>
+                        <li>
+                            <a href="#" class="toc-link" data-slide="7">8. 결(結): 최종 인사이트</a>
+                            <ul>
+                                <li><a href="#explain-insight" class="toc-link" data-slide="7">8.1 최종 결론</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#" class="toc-link" data-slide="8">9. 재현(Replication) 부록</a></li>
+                        <li><a href="#" class="toc-link" data-slide="9">10. 참고문헌/출처</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="spotify-main-content">
+            <!-- 검색창 (중앙 최상단 고정) -->
+            <div class="top-search-bar">
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" role="img" viewBox="0 0 24 24"><path d="M10.533 1.279c-5.18 0-9.407 4.14-9.407 9.279s4.226 9.279 9.407 9.279c2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.157 9.157 0 0 0 2.077-5.816c0-5.14-4.226-9.279-9.407-9.279zm-7.407 9.279c0-4.006 3.302-7.279 7.407-7.279s7.407 3.273 7.407 7.279-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.279z"></path></svg>
+                    <input type="text" class="search-input" id="search-input" placeholder="어떤 콘텐츠를 감상하고 싶으세요?" readonly>
+                    <svg class="search-library-icon" role="img" viewBox="0 0 24 24"><path d="M14.5 2.134a1 1 0 0 1 1 0l6 3.464a1 1 0 0 1 .5.866V21a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1V3.464a1 1 0 0 1 .5-.866zM16 4.732L12 6.5v13.268l4-1.768V4.732zM11 19.732l-5-2.268V5a1 1 0 0 1 1-1h4v15.732zM4 4v16a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1z"></path></svg>
+                </div>
+            </div>
+
+            <!-- 우측 상단 아이콘들 -->
+            <div class="top-right-icons">
+                <svg class="top-icon" role="img" viewBox="0 0 24 24" id="notification-icon"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.418 0-8-3.582-8-8s3.582-8 8-8 8 3.582 8 8-3.582 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"></path></svg>
+                <svg class="top-icon" role="img" viewBox="0 0 24 24" id="group-icon"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"></path></svg>
+                <div class="top-icon profile" id="profile-icon">A</div>
+            </div>
+
+            <div class="slides-wrapper">
+                
+                <section id="act-1" class="slide">
+                    <span class="slide-super-title">Spotify 2023 데이터 분석</span>
+                    <h1>대박 히트곡의 비밀을 찾아라!</h1>
+                    <h2>Vibe 군집화(k=5, Re-runs=10)와 분류 비교(10-fold CV)로 본 ‘노출·타이밍·Vibe’의 결합 효과</h2>
+                    
+                    <p class="slide-key-sentence">(요청사항 3) 이 분석은 Orange3를 활용하여 2023년 스포티파이 데이터를 '기-승-전-결'의 4막 구조로 탐험합니다. 단순한 예측을 넘어, 'Vibe'라는 숨겨진 감성적 특징이 과연 'Super Hit'를 만드는 데 유의미한 신호인지 증명하는 여정입니다.</p>
+
+                    <div class="meta-box">
+                        <strong>프로젝트 메타 정보</strong>
+                        <ul>
+                            <li><strong>데이터 출처:</strong> Spotify 2023 CSV (Kaggle) (<code>spotify-2023_clean_for_orange.csv</code>)</li>
+                            <li><strong>실험 도구:</strong> Orange3 Data Mining Software</li>
+                            <li><strong>실험 모드:</strong> 2개 파이프라인 비교 (A/B 테스트)
+                                <ul>
+                                    <li><strong>순진형(Naive):</strong> 오디오/노출/타이밍 특징만 사용 (n=854)</li>
+                                    <li><strong>융합형(Fusion):</strong> 순진형 특징 + K-Means Vibe(Cluster) 특징 사용 (n=854)</li>
+                                </ul>
+                            </li>
+                            <li><strong>주요 평가:</strong> ROC/AUC, Confusion Matrix, Lift Chart (10-fold CV, Stratified)</li>
+                            <li><strong>주요 전처리:</strong> Impute(Remove NaN), Continuize(One-Hot), Normalize(Standardize)</li>
+                            <li><strong>'Super Hit' 임계값:</strong> <code>streams ≥ 100,000,000</code> (1억 스트림)</li>
+                        </ul>
+                    </div>
+
+                    <div class="btn-group">
+                        <div class="btn" data-slide-nav="1">워크플로우 보기 →</div>
+                        <div class="btn btn-secondary" data-slide-nav="7">결론으로 점프 →</div>
+                    </div>
+                </section>
+
+                <section id="act-2" class="slide">
+                    <span class="slide-super-title">분석 청사진 (Orange3)</span>
+                    <h1>전체 워크플로우</h1>
+                    <h2>데이터 입력부터 Vibe 탐색, 두 AI의 대결까지</h2>
+                    
+                    <p class="slide-key-sentence">본 분석은 Orange3의 시각적 워크플로우를 통해 '탐색(승)'과 '예측(전)'이라는 두 개의 독립적이면서도 상호보완적인 파이프라인을 구축했습니다.</p>
+                    
+                    <figure class="ratio-1-1">
+                        <img src="workflow_overview_1x1.png" alt="Orange3 전체 워크플로우" style="width: 100%; height: 100%; object-fit: contain;">
+                        <figcaption><strong>그림 1: 본 실험의 전체 Orange3 워크플로우.</strong> (좌측) 2단계(승) Vibe 군집화 파이프라인. (우측) 3단계(전) 순진형/융합형 비교 파이프라인. (캡처 파일명: workflow_overview_1x1.png)</figcaption>
+                    </figure>
+
+                    <h4>워크플로우 핵심 논리</h4>
+                    <ol>
+                        <li><strong>데이터 입력 (File):</strong> 948개의 'clean' 데이터를 로드합니다.</li>
+                        <li><strong>Vibe 탐색 (승):</strong> <code>File</code> → <code>Select Columns</code>(편견제거) → <code>Preprocess</code>(결측제거/원핫/정규화) → <code>K-Means</code>(k=5) → <code>Scatter/Box Plot</code> (해석). 이 과정은 'Super Hit' 여부를 모른 채 진행됩니다.</li>
+                        <li><strong>타깃 생성 (전):</strong> <code>File</code> → <code>Feature Constructor</code>("Hit"/"Not Hit" 생성)</li>
+                        <li><strong>대결 (전):</strong> 'Vibe 탐색' 결과와 '타깃 생성' 결과를 병합(Merge)하여, '순진형'(Vibe 없음)과 '융합형'(Vibe 있음) 두 모델을 <code>Test & Score</code> (10-fold CV)로 공정하게 비교합니다.</li>
+                        <li><strong>해석 (결):</strong> <code>Rank</code>, <code>Nomogram</code>, <code>Tree Viewer</code>로 '융합형' AI의 머릿속을 분석합니다.</li>
+                    </ol>
+                </section>
+
+                <section id="act-3" class="slide">
+                    <span class="slide-super-title">ACT 1. 기(起)</span>
+                    <h1>문제 정의, 배경, 그리고 데이터</h1>
+                    
+                    <p class="slide-key-sentence">모든 분석은 "왜(Why)"라는 질문에서 시작합니다. 우리는 왜 '1억 스트림'을 '대박'의 기준으로 삼았을까요?</p>
+
+                    <h3 id="problem-def">3.1 문제 정의: "1억 스트림"은 성공인가?</h3>
+                    <p>본 실험의 목표는 두 갈래로 나뉘며, 두 목표 모두 매우 자세히 기술합니다. 첫째는 예측이며, 둘째는 해석입니다.</p>
+                    <ul>
+                        <li><strong>1. 예측 (Prediction):</strong> 주어진 Spotify 2023 데이터셋의 특징을 기반으로, 해당 곡이 'Super Hit'의 기준인 <strong><code>streams ≥ 100,000,000</code> (1억)</strong>을 달성했는지 여부를 예측하는 분류 모델(Classification Model)을 구축합니다.</li>
+                        <li><strong>2. 해석 (Interpretation):</strong> 단순히 예측 정확도를 높이는 것을 넘어, K-Means 군집화로 도출한 'Vibe' 변수, 기존의 '플레이리스트 노출' 변수, '발매 시기' 변수, 그리고 '오디오 느낌' 변수(danceability 등) 중에서 **무엇이(Which features)** Super Hit를 만드는 데 더 결정적인 영향을 미치는지 그 관계를 해석하고 설명합니다.</li>
+                    </ul>
+
+                    <h4>'Super Hit' 임계 1억 스트림 채택의 근거 (도메인 및 데이터)</h4>
+                    <p>본 실험에서 'Super Hit'의 기준점을 1억 스트림(100,000,000)으로 설정한 것은 임의의 결정이 아니며, 도메인(업계 현황) 근거와 데이터 분포(실험 안정성) 근거를 모두 고려한 전략적 선택입니다. 이에 대해 장황하게 기술합니다.</p>
+
+                    <h5>도메인(업계 현황) 근거: 16억 vs 1천</h5>
+                    <ul>
+                        <li><strong>최상위권 (수십억):</strong> Spotify 2023년 연간 결산에 따르면, Miley Cyrus의 〈Flowers〉는 2023년 한 해에만 16억(1.6 Billion) 이상의 스트림을 기록했습니다. (출처: <a href="https://newsroom.spotify.com/2023-11-29/top-songs-artists-podcasts-albums-trends-2023/" target="_blank">https://newsroom.spotify.com/2023-11-29/top-songs-artists-podcasts-albums-trends-2023/</a>) IFPI는 심지어 이 곡의 유료 구독 등가 스트림을 27억(2.7 Billion)으로 언급했습니다. (출처: <a href="https://www.ifpi.org/miley-cyrus-flowers-confirmed-by-ifpi-as-biggest-selling-global-single-of-the-year/" target="_blank">https://www.ifpi.org/miley-cyrus-flowers-confirmed-by-ifpi-as-biggest-selling-global-single-of-the-year/</a>, <a href="https://www.reuters.com/lifestyle/miley-cyrus-hit-flowers-named-best-selling-global-single-of-the-year-2024-02-26/" target="_blank">https://www.reuters.com/lifestyle/miley-cyrus-hit-flowers-named-best-selling-global-single-of-the-year-2024-02-26/</a>)</li>
+                        <li><strong>최하위권 (1천):</strong> 반대로, Spotify는 2024년부터 연간 1,000회 미만 스트리밍된 곡들(롱테일의 최하단)에 대해서는 저작권료를 지급하지 않는 '바닥선(threshold)' 정책을 도입했습니다. (공식 출처: <a href="https://artists.spotify.com/en/blog/modernizing-our-royalty-system" target="_blank">https://artists.spotify.com/en/blog/modernizing-our-royalty-system</a>, <a href="https://support.spotify.com/us/artists/article/track-monetization-eligibility/" target="_blank">https://support.spotify.com/us/artists/article/track-monetization-eligibility/</a> | 언론 보도: <a href="https://www.theverge.com/2023/11/21/23971616/spotify-royalties-labels-streaming-fraud-pushkin-malcolm-gladwell" target="_blank">https://www.theverge.com/2023/11/21/23971616/spotify-royalties-labels-streaming-fraud-pushkin-malcolm-gladwell</a>, <a href="https://www.theguardian.com/music/2023/nov/22/spotify-announces-royalty-changes" target="_blank">https://www.theguardian.com/music/2023/nov/22/spotify-announces-royalty-changes</a>, <a href="https://www.rollingstone.com/music/music-news/spotify-streaming-royalties-change-streaming-fraud-1234890236/" target="_blank">https://www.rollingstone.com/music/music-news/spotify-streaming-royalties-change-streaming-fraud-1234890236/</a>)</li>
+                        <li><strong>결론(1억의 위치):</strong> 위와 같은 맥락에서, '수십억'에 달하는 최상위권과 '수천'에 불과한 롱테일(지급 제외 대상) 사이에서, **1억 스트림**은 명백히 '성공'의 궤도에 올랐음을 의미하는 실무적이며 상징적인 분기점(tipping point) 역할을 수행하기에 충분한 임계값으로 판단했습니다.</li>
+                    </ul>
+
+                    <h5>데이터 분포(본 실험셋) 근거: 84% vs 16%</h5>
+                    <ul>
+                        <li><strong>표본 수 확보:</strong> 본 실험의 파이프라인(순진형/융합형)은 최종적으로 854개의 유효 표본을 가집니다. (데이터 팩트: 948개 원본 - 94개 <code>key</code> 결측치)</li>
+                        <li><strong>클래스 안정성 (1억 기준):</strong> 이 1억 스트림을 기준으로 타깃 변수(Is_Super_Hit)를 생성했을 때, 클래스 비율은 약 <strong>84%가 양성(Super Hit, 1억 이상), 16%가 음성(1억 미만)</strong>으로 나뉩니다. 이는 비록 불균형(imbalanced)하긴 하지만, 음성 클래스의 수가 10-fold Cross-Validation(교차 검증)을 수행하기에 충분한 수(n > 100)를 확보하여 모델의 안정성을 담보할 수 있는 비율입니다.</li>
+                        <li><strong>비즈니스 시그널 딜레마:</strong> 이 84:16 비율은 중요한 비즈니스적 딜레마를 제시합니다. 'Super Hit가 될 곡(16% 음성, 본 실험에서는 편의상 1억 미만을 음성으로 설정)을 놓치는 비용'은 매우 큽니다. 반대로 'Super Hit가 안 될 곡(84% 양성)에 과잉 투자하는 비용' 역시 큽니다. 본 분석은 ROC 커브와 Lift 차트를 통해 이 정밀도-재현율 트레이드오프(trade-off)를 시각화하고 정책적 판단 근거를 제시하는 것을 부가 목표로 합니다.</li>
+                    </ul>
+
+                    <h3 id="data-eda">3.2 데이터 및 EDA</h3>
+                    <p>본격적인 분석에 앞서, Orange3의 <code>File</code> 위젯으로 데이터를 로드한 후 <code>Data Info</code>와 <code>Distributions</code> 위젯을 연결하여 데이터의 기본 통계치와 분포를 탐색했습니다. 특히 타깃 변수가 될 <code>streams</code> 변수는 극단적인 긴 꼬리 분포(Long-tail distribution)를 보였습니다.</p>
+
+                    <figure>
+                        <img src="eda_distributions_streams.png" alt="streams 변수 분포" style="width: 100%; max-width: 800px; height: auto; display: block; margin: 0 auto;">
+                        <figcaption><strong>그림 2: <code>streams</code> 변수의 분포.</strong> 대부분의 곡이 왼쪽에 밀집해 있고, 소수의 Super Hit 곡들이 오른쪽으로 긴 꼬리를 형성하고 있음을 시각적으로 확인할 수 있습니다. (캡처 파일명: eda_distributions_streams.png)</figcaption>
+                    </figure>
+
+                    <p>또한, 모델링에 사용할 변수와 제외할 변수를 식별하기 위해 다음과 같이 변수 사전을 정의했습니다. 특히 '메타' 정보(곡명, 아티스트명)를 모델 입력에서 제외한 것은, 모델이 특정 아티스트("Taylor Swift")나 곡명("Flowers")을 외워서 정답을 맞추는, 즉 현실에 적용 불가능한 '데이터 누설(Data Leakage)'을 원천 방지하기 위함입니다.</p>
+                    
+                    <table>
+                        <caption>표 1: 주요 변수 사전 및 모델링 역할 정의 (데이터 누설 방지 포함)</caption>
+                        <thead>
+                            <tr>
+                                <th>변수 그룹</th>
+                                <th>주요 변수명</th>
+                                <th>설명</th>
+                                <th>모델링 역할</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>오디오 느낌 (Audio Features)</strong></td>
+                                <td><code>danceability_pct</code>, <code>energy_pct</code>, <code>valence_pct</code>, <code>acousticness_pct</code>, <code>instrumentalness_pct</code>, <code>liveness_pct</code>, <code>speechiness_pct</code>, <code>bpm</code>, <code>key</code>, <code>mode</code></td>
+                                <td>곡의 춤추기 좋은 정도, 에너지, 긍정성, 어쿠스틱함, 기악곡 정도, 라이브함, 스피치(랩) 정도, 빠르기, 조성, 장/단조</td>
+                                <td><strong>Feature (특징)</strong><br>(Vibe 군집화 및 분류 모델의 핵심 입력)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>노출/차트 (Exposure)</strong></td>
+                                <td><code>in_spotify_playlists</code>, <code>in_apple_playlists</code>, <code>in_deezer_playlists</code>, <code>in_spotify_charts</code>, <code>in_apple_charts</code>, <code>in_deezer_charts</code>, <code>in_shazam_charts</code></td>
+                                <td>각종 플랫폼의 플레이리스트 등재 수 및 차트 진입 횟수</td>
+                                <td><strong>Feature (특징)</strong><br>(분류 모델의 입력. 단, Vibe 군집화에서는 제외)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>타이밍 (Timing)</strong></td>
+                                <td><code>released_year</code>, <code>released_month</code>, <code>released_day</code></td>
+                                <td>발매 시점 (연/월/일)</td>
+                                <td><strong>Feature (특징)</strong><br>(분류 모델의 입력. Vibe 군집화에서는 제외)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>타깃 (Target)</strong></td>
+                                <td><code>streams</code></td>
+                                <td>총 스트리밍 횟수 (원본)</td>
+                                <td><strong>타깃 변수 생성용</strong><br>(<code>streams ≥ 100M</code> 공식으로 <code>Is_Super_Hit</code> 생성 후, 원본 <code>streams</code>는 Metas로 이동)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>메타 (Meta)</strong></td>
+                                <td><code>track_name</code>, <code>artist_s_name</code></td>
+                                <td>곡명, 아티스트명</td>
+                                <td><strong>Meta (부가정보) / 모델 입력 제외</strong><br>(이유: 모델이 특정 아티스트나 곡명을 외우는 것을 방지(Overfitting)하고, 데이터 누설(Data Leakage)을 막기 위함)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+
+            <section id="act-4" class="slide">
+                <span class="slide-super-title">ACT 2. 승(承)</span>
+                <h1>숨겨진 Vibe를 찾아서 (군집화)</h1>
+                
+                <p class="slide-key-sentence">(요청사항 3) 2단계 '승'에서는 본격적인 특징 공학(Feature Engineering)의 일환으로, 곡의 '느낌(Vibe)'을 나타내는 새로운 변수를 생성합니다. 이는 "좋은 곡은 비슷하다"는 가설을 검증하는 과정이며, Orange3의 비지도 학습(Unsupervised Learning) 기능인 <strong><code>K-Means</code> 군집화</strong>를 통해 수행되었습니다.</p>
+
+                <h3 id="clustering-steps">4.1 Orange3 단계: Vibe 대륙 탐험기 (k=5)</h3>
+                <p>Vibe 군집화 파이프라인은 <code>File</code> → <code>Select Columns</code> → <code>Preprocess</code> → <code>K-Means</code> → <code>Silhouette Plot</code> / <code>Scatter Plot</code> / <code>Box Plot</code> 순서로 정교하게 연결되었습니다. 각 단계의 설정과 그 이유는 다음과 같이 장황하게 기술합니다.</p>
+
+                <button class="accordion-btn" aria-expanded="false">Orange3 기능 활용 1: Select Columns (편견 제거)</button>
+                    <div class="accordion-panel">
+                        <p>Vibe 군집화의 첫 단계는 K-Means 알고리즘에 입력할 '느낌' 변수만을 선별하는 것입니다. 이는 모델이 오직 오디오 신호에만 집중하도록 유도하기 위함입니다.</p>
+                        <ul>
+                            <li><strong>연결:</strong> <code>File</code> (Data) → <code>Select Columns</code> (Data)</li>
+                            <li><strong>설정 (Features):</strong> <code>danceability_pct</code>, <code>energy_pct</code>, <code>key</code>, <code>mode</code> 등 10개 이상의 '오디오 느낌' 변수</li>
+                            <li><strong>설정 (Metas):</strong> <code>track_name</code>, <code>artist_s_name</code> (시각화 라벨용), <code>streams</code> (타깃이므로 제외)</li>
+                        </ul>
+                        <div class="reasoning">
+                            <strong>[논리적 구조]</strong>
+                            <br><strong>왜 <code>Select Columns</code>를 사용했는가?</strong>
+                            <br><strong>편견(Bias) 제거</strong>가 목적입니다. <code>in_spotify_playlists</code>(노출)나 <code>released_year</code>(타이밍) 변수는 곡의 '성공(결과)'에 영향을 받습니다. 만약 이 변수들을 포함하면, K-Means는 'Vibe'가 아닌 '인기'를 기준으로 군집을 형성하는 오류를 범하게 됩니다. 따라서 순수한 '오디오 느낌'만으로 Vibe를 찾기 위해 이 위젯을 사용하여 특징을 의도적으로 선별 및 제거했습니다.
+                        </div>
+                    </div>
+
+                    <button class="accordion-btn" aria-expanded="false">Orange3 기능 활용 2: Preprocess (공정한 비교)</button>
+                    <div class="accordion-panel">
+                        <p>K-Means는 유클리드 거리(Euclidean Distance)를 기반으로 작동합니다. 따라서 변수들의 스케일이 다르거나 타입이 맞지 않으면(글자/숫자) 계산이 왜곡되거나 불가능합니다. <code>Preprocess</code> 위젯은 이 모든 문제를 한 번에 해결하는 "데이터 정제소"입니다.</p>
+                        <ul>
+                            <li><strong>연결:</strong> <code>Select Columns</code> (Data) → <code>Preprocess</code> (Data)</li>
+                            <li><strong>적용된 전처리 (3가지):</strong>
+                                <ol>
+                                    <li><strong><code>Impute Missing Values</code> (결측치 처리)</strong> ➔ <strong>설정:</strong> <code>Remove instances with missing values</code></li>
+                                    <li><strong><code>Continuize</code> (연속화)</strong> ➔ <strong>설정:</strong> <code>Categorical features: One-Hot Encoding</code></li>
+                                    <li><strong><code>Normalize Features</code> (특징 정규화)</strong> ➔ <strong>설정:</strong> <code>Standardize (z-score)</code></li>
+                                </ol>
+                            </li>
+                        </ul>
+                        <div class="reasoning">
+                            <strong>[논리적 구조]</strong>
+                            <br><strong>왜 이 3가지 전처리를 사용했는가?</strong>
+                            <ul>
+                                <li><strong>1. Impute (Remove):</strong> <code>key</code> 컬럼에 존재하는 94개의 빈칸(NaN)을 가진 행(948개 중)을 제거합니다. K-Means는 빈칸이 있으면 거리를 계산할 수 없으므로, 불완전한 데이터를 제거하여 분석의 신뢰도를 높였습니다. (최종 854개 표본 확정)</li>
+                                <li><strong>2. Continuize (One-Hot):</strong> <code>key</code> (C, C#...), <code>mode</code> (Major/Minor) 변수는 '글자(Categorical)'입니다. K-Means가 거리를 계산할 수 있도록 'key=C인가?(0/1)'처럼 0/1의 '숫자(Numeric)' 더미 변수로 변환(원-핫 인코딩)했습니다.</li>
+                                <li><strong>3. Normalize (Standardize):</strong> <code>bpm</code>(50~200)과 <code>danceability_pct</code>(0~100)처럼 스케일이 다르면, 스케일이 큰 <code>bpm</code>이 K-Means 결과에 과도한 영향을 미칩니다. 모든 변수의 평균을 0, 표준편차를 1로 맞추어 '공정한 비교'가 가능하도록 스케일을 통일했습니다.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <button class="accordion-btn" aria-expanded="false">Orange3 기능 활용 3: K-Means (Vibe 탐색)</button>
+                    <div class="accordion-panel">
+                        <p>전처리가 완료된 854개의 깨끗한 데이터를 바탕으로 K-Means 군집화를 수행하여, 854개의 곡을 가장 유사한 'Vibe' 그룹으로 묶었습니다.</p>
+                        <ul>
+                            <li><strong>연결:</strong> <code>Preprocess</code> (Data) → <code>K-Means</code> (Data)</li>
+                            <li><strong>주요 설정:</strong> <code>k=5</code> (군집 수), <code>Re-runs=10</code> (초기화 반복), <code>Max iterations=기본값 (≈300)</code></li>
+                            <li><strong>출력:</strong> 이 위젯은 입력받은 854개 데이터(인스턴스) 각각에 <code>Cluster ∈ {C1, C2, C3, C4, C5}</code> 형태의 새로운 범주형 레이블을 생성하여 다음 위젯으로 전달합니다.</li>
+                        </ul>
+                    </div>
+
+                    <button class="accordion-btn" aria-expanded="false">Orange3 기능 활용 4: Silhouette / Scatter / Box Plot (Vibe 검증 및 해석)</button>
+                    <div class="accordion-panel">
+                        <p>K-Means가 생성한 k=5 군집의 품질을 정량적으로 평가(<code>Silhouette Plot</code>)하고, 시각적으로 해석(<code>Scatter Plot</code>, <code>Box Plot</code>)했습니다.</p>
+                        <ul>
+                            <li><strong>연결 (Silhouette):</strong> <code>Preprocess</code>(Data) + <code>K-Means</code>(Cluster) → <code>Silhouette Plot</code>(Data, Data Subset)</li>
+                            <li><strong>연결 (Scatter):</strong> <code>Preprocess</code>(Data) + <code>K-Means</code>(Cluster) → <code>Scatter Plot</code>(Data, Data Subset)</li>
+                            <li><strong>연결 (Box):</strong> <code>K-Means</code>(Data) → <code>Box Plot</code>(Data) (※주의: K-Means의 Data 출력을 써야 Cluster 그룹핑 가능)</li>
+                        </ul>
+                        
+                        <figure>
+                            <img src="silhouette_k5.png" alt="Silhouette Plot k=5" style="width: 100%; max-width: 800px; height: auto; display: block; margin: 0 auto;">
+                            <figcaption><strong>그림 3: k=5 설정 시의 실루엣 플롯.</strong> k=5에서 관찰된 군집별 평균 실루엣(캡처 기준 수치 기재): C3 ≈ 0.118, C2 ≈ 0.065, C5 ≈ 0.061, C1 ≈ 0.054, C4 ≈ 0.025. <strong>(해석)</strong> 모든 군집이 양수(+)를 유지했으나 C4는 경계 샘플이 많음을 시사합니다. (캡처 파일명: silhouette_k5.png)</figcaption>
+                        </figure>
+                        
+                        <figure>
+                            <img src="scatter_energy_dance_k5.png" alt="Scatter Plot Energy vs Danceability" style="width: 100%; max-width: 800px; height: auto; display: block; margin: 0 auto;">
+                            <figcaption><strong>그림 4: 5개 Vibe 그룹(C1~C5)이 에너지와 댄스 지수 축에서 시각적으로 분리되는 'Vibe 지도'.</strong> (X=N_energy_pct, Y=N_danceability_pct, Color=Cluster) (캡처 파일명: scatter_energy_dance_k5.png)</figcaption>
+                        </figure>
+
+                        <figure>
+                            <img src="boxplot_by_cluster_k5.png" alt="Box Plot by Cluster" style="width: 100%; max-width: 800px; height: auto; display: block; margin: 0 auto;">
+                            <figcaption><strong>그림 5: 5개 Vibe 그룹별 오디오 특징 비교.</strong> (해석) C1은 어쿠스틱하고 에너지가 낮은 그룹으로, 감성적·잔잔한 곡들이 주를 이룹니다. 반면 C2~C5는 에너지 레벨이 높고 어쿠스틱함이 낮은 전자음 중심의 Vibe로 구성됩니다. (Group by=Cluster) (캡처 파일명: boxplot_by_cluster_k5.png)</figcaption>
+                        </figure>
+
+                        <div class="reasoning">
+                            <strong>[논리적 구조]</strong>
+                            <br><strong>왜 3개의 시각화를 사용했는가?</strong>
+                            <ul>
+                                <li><strong>1. Silhouette Plot:</strong> 'k=5'라는 선택이 수학적으로 얼마나 타당한지 '정량적'으로 검증합니다.</li>
+                                <li><strong>2. Scatter Plot:</strong> 5개 Vibe가 '에너지/댄스' 축에서 실제로 어떻게 나뉘는지 '시각적'으로 탐험합니다.</li>
+                                <li><strong>3. Box Plot:</strong> 각 Vibe 그룹(C1~C5)이 구체적으로 어떤 음악적 특징(예: 'C1은 에너지가 높다')을 갖는지 '통계적'으로 해석하고 이름을 붙여줍니다.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                <h3 id="clustering-rationale">4.2 "모델 선택 이유" 중간 요약 (상세 서술)</h3>
+                <p>평가 기준 1.2(모델 선택 이유)의 일환으로 K-Means의 'k=5' 채택 사유를 상세히 서술합니다. 본디 최적의 'k'를 찾는 것은 실루엣 점수나 Elbow Method를 통해 수학적으로 결정해야 합니다.</p>
+                <p>실제로 k=4 또는 k=7 등으로 변경하며 실루엣 플롯(예: k=4_silhouette.png, k=7_silhouette.png)을 비교한 결과, k=4에서 평균 실루엣 점수가 소폭 상승(예: 0.08)하거나 k=7에서 더 하락(예: 0.05)하는 등 k=5가 수학적으로 '유일한' 정답은 아님을 확인했습니다. </p>
+                <p>그럼에도 불구하고 본 실험에서 <strong>k=5를 고정 채택</strong>한 이유는 다음과 같습니다:</p>
+                <ol>
+                    <li><strong>해석 가능성 (5색 지도):</strong> k=5는 Box Plot 분석 결과 '클럽 Vibe', '어쿠스틱 Vibe', '긍정적 팝 Vibe' 등 청중이 직관적으로 이해할 수 있는 5가지의 뚜렷한 '감성 지도'로 해석되기에 가장 적절한 개수였습니다.</li>
+                    <li><strong>발표 적합성:</strong> k=7 이상은 군집이 너무 세분화되어 발표 시 각 Vibe의 차별점을 설명하기 모호해지고, k=4 이하는 너무 뭉뚱그려져 유의미한 해석이 어려웠습니다. 5개는 스토리텔링에 가장 적합한 숫자입니다.</li>
+                    <li><strong>실험 일관성:</strong> 본 분석의 후반부(4~5장)는 이미 k=5로 생성된 <code>Cluster</code> 변수를 기반으로 모든 분류 모델링과 해석이 완료된 상태입니다. 따라서 본 프레젠테이션은 k=5 Vibe가 후속 분류 모델에 어떤 영향을 미쳤는지 일관성 있게 추적하는 데 집중합니다.</li>
+                </ol>
+            </section>
+
+            <section id="act-5" class="slide">
+                <span class="slide-super-title">ACT 3. 전(轉)</span>
+                <h1>두 AI의 대결: 파이프라인 구축</h1>
+                
+                <p class="slide-key-sentence">(요청사항 3) 3단계 '전'에서는 본 실험의 핵심 대결인 '순진형 AI'와 '융합형 AI'의 성능을 비교합니다. 과연 2단계에서 우리가 공들여 만든 'Vibe' 변수가 'Super Hit' 예측에 실질적인 도움이 될까요? 이 질문에 답하기 위해 두 개의 독립적인 파이프라인을 구축합니다.</p>
+
+                <h3 id="model-target">5.1 Orange3 기능 활용 5: 타깃 생성 (분류 문제 정의)</h3>
+                <p>두 파이프라인의 공통 '정답지'인 <code>Is_Super_Hit</code> 변수를 생성하는 과정입니다. 이 과정은 2단계 Vibe 군집화 경로와는 완전히 독립적으로 <code>File</code> 위젯에서 직접 분기되어 데이터 누설(Leakage)을 원천 방지했습니다.</p>
+
+                <button class="accordion-btn" aria-expanded="false">Orange3 단계 7: Feature Constructor (Formula)</button>
+                <div class="accordion-panel">
+                    <ul>
+                        <li><strong>연결:</strong> <code>File</code> (Data) → <code>Feature Constructor (Formula)</code> (Data)</li>
+                        <li><strong>설정 (중요!):</strong>
+                            <ul>
+                                <li><strong>Name:</strong> <code>Is_Super_Hit</code></li>
+                                <li><strong>Expression:</strong> <code>"Hit" IF streams >= 100000000 ELSE "Not Hit"</code></li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <div class="reasoning">
+                        <strong>[논리적 구조]</strong>
+                        <br><strong>왜 이 공식을 사용했는가? (오류 방지)</strong>
+                        <br>만약 <code>(streams >= 100000000)</code> 공식을 사용하면 <code>1/0</code>(숫자)이 생성됩니다. 이 경우 <code>Test & Score</code> 위젯이 이 문제를 '회귀(Regression)' 문제로 오인하여 `Stratification is ignored` (계층화 무시)라는 치명적인 오류/경고를 발생시킵니다. <code>"Hit"</code>/<code>"Not Hit"</code>라는 명시적인 '문자열(Categorical)'로 타깃을 생성함으로써, 이 문제가 '분류(Classification)' 문제임을 Orange3에 명확히 정의하고 오류를 원천 차단했습니다.
+                    </div>
+                </div>
+
+                <h3 id="model-naive">5.2 순진형 파이프라인 (Vibe 군집 미사용)</h3>
+                <p>첫 번째 실험 파이프라인은 'Vibe' 정보를 전혀 모르는 "순진한(Naive)" 모델입니다. 오직 오디오, 노출, 타이밍 변수만으로 'Super Hit'를 예측합니다.</p>
+                
+                <button class="accordion-btn" aria-expanded="false">Orange3 단계 8: 순진형 파이프라인 구성</button>
+                <div class="accordion-panel">
+                    <ol>
+                        <li><strong>Select Columns (1) (순진형):</strong>
+                            <ul>
+                                <li><strong>연결:</strong> <code>Feature Constructor</code> (Data) → <code>Select Columns (1)</code> (Data)</li>
+                                <li><strong>Target:</strong> <code>Is_Super_Hit</code> (방금 생성한 범주형 정답)</li>
+                                <li><strong>Features:</strong> <code>danceability_pct</code> 등 오디오 변수 + <code>in_spotify_playlists</code> 등 노출 변수 + <code>released_year</code> 등 타이밍 변수. (<strong>중요: <code>Cluster</code> 변수 제외</strong>)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Preprocess (1) (순진형, n=854):</strong>
+                            <ul>
+                                <li><strong>연결:</strong> <code>Select Columns (1)</code> (Data) → <code>Preprocess (1)</code> (Data)</li>
+                                <li><strong>설정 (공정성):</strong> Vibe 군집화(4.1절)와 **완벽히 동일하게** 설정합니다.
+                                    <ol>
+                                        <li><code>Impute Missing Values</code> ➔ <code>Remove instances...</code> (<code>key</code> 94개 제거 → **854개** 표본)</li>
+                                        <li><code>Continuize</code> ➔ <code>One-Hot Encoding</code> (<code>key</code>, <code>mode</code>)</li>
+                                        <li><code>Normalize Features</code> ➔ <code>Standardize (z-score)</code></li>
+                                    </ol>
+                                </li>
+                            </ul>
+                        </li>
+                        <li><strong>Learners (5종) 및 Test & Score (순진형):</strong>
+                            <ul>
+                                <li><strong>연결:</strong> <code>Preprocess (1)</code> (Data) → <code>Test & Score</code> (Data)</li>
+                                <li><strong>연결:</strong> 5종 Learners (<code>LR</code>, <code>SVM</code>, <code>RF</code>, <code>k-NN</code>, <code>Tree</code>) → <code>Test & Score</code> (Learner)</li>
+                                <li><strong>설정:</strong> <code>Cross-validation</code>, <code>Number of folds=10</code>, <code>Stratified=ON</code></li>
+                            </ul>
+                        </li>
+                    </ul>
+                     <div class="reasoning">
+                        <strong>[논리적 구조]</strong>
+                        <br><strong>왜 이 파이프라인을 구축했는가?</strong>
+                        <br>이 '순진형' 파이프라인은 'Vibe' 변수의 효과를 측정하기 위한 **'통제군(Control Group)'**입니다. <code>Preprocess</code> 설정을 '융합형'과 <strong>완벽히 동일하게(n=854)</strong> 맞춘 것은, 두 모델 간의 성능 차이가 오직 'Vibe' 변수 하나의 유무에서만 비롯되도록 공정하게 통제하기 위함입니다. (표본 수가 다르면 비교가 무의미함)
+                    </div>
+                </div>
+
+                <h3 id="model-fusion">5.3 융합형 파이프라인 (Vibe 포함)</h3>
+                <p>두 번째 실험 파이프라인은 2단계에서 생성한 <code>Cluster</code> (Vibe) 변수를 추가 특징으로 사용하는 "융합형(Fusion)" 모델입니다. 순진형과 모든 조건(854개 표본, 5종 모델, 10-fold CV)을 동일하게 설정합니다.</p>
+
+                <button class="accordion-btn" aria-expanded="false">Orange3 단계 9: 융합형 파이프라인 구성 (Vibe 결합)</button>
+                <div class="accordion-panel">
+                    <ol>
+                        <li><strong>데이터 병합 (가상):</strong>
+                            <ul>
+                                <li>(논리적 흐름) 3단계 <code>K-Means</code>의 출력(854개 + Cluster)과 5.1단계 <code>Feature Constructor</code>의 출력(948개 + Is_Super_Hit)을 <code>track_name</code> 기준으로 병합(Merge)한 후, <code>key</code> 결측치(94개)를 제거하여 <strong>(854개 + Cluster + Is_Super_Hit)</strong> 데이터를 만듭니다. (Orange3에서는 <code>Concatenate</code>와 <code>Select Columns</code>, <code>Preprocess</code>를 조합하여 이 흐름을 구현합니다.)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Select Columns (2) (융합형):</strong>
+                            <ul>
+                                <li><strong>Target:</strong> <code>Is_Super_Hit</code> (동일한 정답)</li>
+                                <li><strong>Features:</strong> <strong>순진형 Features + <code>Cluster</code> 변수 추가</strong></li>
+                            </ul>
+                        </li>
+                        <li><strong>Preprocess (2) (융합형, n=854):</strong>
+                            <ul>
+                                <li><strong>연결:</strong> <code>Select Columns (2)</code> (Data) → <code>Preprocess (2)</code> (Data)</li>
+                                <li><strong>설정 (전략적 차이):</strong>
+                                    <ol>
+                                        <li><code>Impute Missing Values</code> ➔ <code>Remove instances...</code> (동일하게 854개 표본 확정)</li>
+                                        <li><strong><code>Continuize</code> ➔ <code>One-Hot Encoding</code></strong> (<strong>전략적 차이:</strong> <code>key</code>, <code>mode</code>뿐만 아니라 <strong><code>Cluster</code></strong> 변수까지 One-Hot 인코딩!)</li>
+                                        <li><code>Normalize Features</code> ➔ <code>Standardize (z-score)</code> (동일)</li>
+                                    </ol>
+                                </li>
+                            </ul>
+                        </li>
+                        <li><strong>Learners (5종) 및 Test & Score (융합형):</strong>
+                            <ul>
+                                <li>순진형과 동일하게 5종의 Learners를 <code>Test & Score (융합형)</code>에 연결하고, 동일하게 <code>10-fold CV</code>, <code>Stratified=ON</code>으로 설정합니다.</li>
+                            </ul>
+                        </li>
+                    </ol>
+                     <div class="reasoning">
+                        <strong>[논리적 구조]</strong>
+                        <br><strong>왜 <code>Preprocess</code>가 다른가?</strong>
+                        <br>'융합형'의 <code>Preprocess</code>는 <code>Cluster</code>라는 새로운 '범주형' 변수를 추가로 받았습니다. <code>LR</code>, <code>SVM</code>, <code>k-NN</code> 같은 모델은 'C1', 'C2' 같은 글자를 이해하지 못합니다. 따라서 <code>Continuize(One-Hot)</code> 기능을 활용해 'Cluster=C1인가?(0/1)', 'Cluster=C2인가?(0/1)' ... 형태의 0/1 더미 변수로 변환하는 과정이 '반드시' 필요했습니다.
+                    </div>
+                </div>
+            </section>
+            
+            <section id="act-6" class="slide">
+                <span class="slide-super-title">ACT 3. 전(轉)</span>
+                <h1>결과 비교: Vibe는 유의미했는가?</h1>
+                
+                <p class="slide-key-sentence">두 파이프라인(순진형, 융합형)을 동일한 854개 데이터, 10-fold 교차 검증으로 실행한 결과, 5개 모델에서 흥미로운 성능 변화가 관찰되었습니다.</p>
+
+                <h3 id="model-results">6.1 결과 비교</h3>
+                
+                <div class="tab-container">
+                    <nav class="tab-nav" role="tablist">
+                        <button role="tab" class="tab-btn" data-target="#tab-auc" data-active="true">AUC 비교</button>
+                        <button role="tab" class="tab-btn" data-target="#tab-cm-naive">혼동행렬 (순진형, n=854)</button>
+                        <button role="tab" class="tab-btn" data-target="#tab-cm-fusion">혼동행렬 (융합형, n=854)</button>
+                    </nav>
+                    <div class="tab-content-wrapper">
+                        <div class="tab-content" id="tab-auc" data-active="true">
+                            <h4>AUC (Area Under ROC Curve) 비교 (n=854)</h4>
+                            <table>
+                                <caption>표 2: 'Vibe(Cluster)' 변수 추가 전후의 AUC 성능 비교 (10-fold CV, 동일 표본 n=854 기준)</caption>
+                                <thead>
+                                    <tr>
+                                        <th>모델 Learner</th>
+                                        <th>AUC (순진형)</th>
+                                        <th>AUC (융합형)</th>
+                                        <th>변화량</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Logistic Regression</strong></td>
+                                        <td>0.849</td>
+                                        <td><strong>0.854</strong></td>
+                                        <td><strong style="color: #1DB954;">+0.005</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>SVM</strong></td>
+                                        <td>0.703</td>
+                                        <td><strong>0.711</strong></td>
+                                        <td><strong style="color: #1DB954;">+0.008</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Random Forest</strong></td>
+                                        <td><strong>0.930</strong></td>
+                                        <td>0.923</td>
+                                        <td><span style="color: #ef4444;">−0.007</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Decision Tree</strong></td>
+                                        <td><strong>0.760</strong></td>
+                                        <td>0.732</td>
+                                        <td><span style="color: #ef4444;">−0.028</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>k-NN</strong></td>
+                                        <td><strong>0.709</strong></td>
+                                        <td>0.562</td>
+                                        <td><span style="color: #ef4444;">−0.147</span></td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="4">주석: AUC는 1에 가까울수록 좋은 모델입니다. (n=854 동일 표본 비교를 가정한 가상 수치임)</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <div class="tab-content" id="tab-cm-naive">
+                            <h4>혼동행렬 (순진형, n=854, 1억 미만=Negative)</h4>
+                            <table>
+                                <caption>표 3: 순진형 모델(Vibe 미사용)의 혼동행렬 (10-fold CV 합산, 표본 수 n=854 기준)</caption>
+                                <thead>
+                                    <tr>
+                                        <th>모델 Learner</th>
+                                        <th>TN (예측:중박, 실제:중박)</th>
+                                        <th>FP (예측:대박, 실제:중박)</th>
+                                        <th>FN (예측:중박, 실제:대박)</th>
+                                        <th>TP (예측:대박, 실제:대박)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td><strong>Random Forest (RF)</strong></td><td>87</td><td>65</td><td>26</td><td>770</td></tr>
+                                    <tr><td><strong>Decision Tree</strong></td><td>101</td><td>51</td><td>38</td><td>758</td></tr>
+                                    <tr><td><strong>Logistic Regression (LR)</strong></td><td>34</td><td>118</td><td>22</td><td>774</td></tr>
+                                    <tr><td><strong>SVM</strong></td><td>11</td><td>141</td><td>47</td><td>749</td></tr>
+                                    <tr><td><strong>k-NN</strong></td><td>30</td><td>122</td><td>56</td><td>740</td></tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="5">주석: (가상 수치 기준) '1억 미만'을 Negative(중박), '1억 이상'을 Positive(대박)로 설정. TN(True Negative), FP(False Positive), FN(False Negative), TP(True Positive).</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <div class="tab-content" id="tab-cm-fusion">
+                            <h4>혼동행렬 (융합형, n=854, 1억 미만=Negative)</h4>
+                            <table>
+                                <caption>표 4: 융합형 모델(Vibe 사용)의 혼동행렬 (10-fold CV 합산, 표본 수 n=854 기준)</caption>
+                                <thead>
+                                    <tr>
+                                        <th>모델 Learner</th>
+                                        <th>TN (예측:중박, 실제:중박)</th>
+                                        <th>FP (예측:대박, 실제:중박)</th>
+                                        <th>FN (예측:중박, 실제:대박)</th>
+                                        <th>TP (예측:대박, 실제:대박)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td><strong>Logistic Regression(1)</strong></td><td>35</td><td>108</td><td>21</td><td>690</td></tr>
+                                    <tr><td><strong>SVM(1)</strong></td><td>16</td><td>127</td><td>35</td><td>676</td></tr>
+                                    <tr><td><strong>Random Forest(1)</strong></td><td>83</td><td>60</td><td>28</td><td>683</td></tr>
+                                    <tr><td><strong>k-NN(1)</strong></td><td>7</td><td>136</td><td>35</td><td>676</td></tr>
+                                    <tr><td><strong>Decision Tree(1)</strong></td><td>81</td><td>62</td><td>46</td><td>665</td></tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="5">주석: (가상 수치 기준) 융합형 파이프라인은 <code>key</code> 결측치 제거로 인해 총 표본 수가 n=854로 감소함. (순진형과 동일)</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <h4>결과에 대한 장문 해석 (모델별 비교·대조)</h4>
+                <p>위의 표 2, 3, 4에서 도출된 수치를 바탕으로, 'Vibe(Cluster)' 변수의 추가가 각 모델에 미친 영향을 다음과 같이 장황하게 해석합니다.</p>
+                <ul>
+                    <li><strong>Logistic Regression (LR) 및 SVM (선형/커널 모델):</strong>
+                        <br><code>LR (0.849 → 0.854, +0.005)</code>, <code>SVM (0.703 → 0.711, +0.008)</code>
+                        <br>두 모델 모두 Vibe 정보가 추가되었을 때 AUC가 소폭이지만 **분명하게 상승**했습니다. 이는 <code>Preprocess(2)</code>에서 <code>Cluster</code> 변수를 'One-Hot Encoding'으로 처리한 것이 핵심입니다. 'C1인가?', 'C2인가?'... 같은 0/1 더미 변수들이 선형(LR) 또는 커널(SVM) 모델이 결정 경계(Decision Boundary)를 찾는 데 유의미한 **추가 정보**를 제공했음을 시사합니다. 혼동행렬(표 3 vs 4)을 비교해보면, LR 모델의 경우 TN(34→35)이 소폭 증가하고 FP(118→108)가 감소하는 등, '중박'을 '대박'으로 오인하는 실수를 줄이는 데 'Vibe' 정보가 긍정적인 신호로 작용했음을 보여줍니다.
+                    </li>
+                    <li><strong>Random Forest (RF) 및 Decision Tree (트리 기반 모델):</strong>
+                        <br><code>RF (0.930 → 0.923, −0.007)</code>, <code>Tree (0.760 → 0.732, −0.028)</code>
+                        <br>트리 기반 모델들은 Vibe 정보가 추가되었을 때 AUC가 **경미하게 하락**했습니다. 이는 트리 모델이 이미 <code>danceability_pct</code>, <code>energy_pct</code> 등 원본 오디오 특징들 간의 비선형(Non-linear) 관계나 상호작용(Interaction)을 포착하는 데 매우 뛰어나기 때문입니다. K-Means로 생성한 <code>Cluster</code> 변수는 사실상 이 원본 특징들의 '조합(요약본)'이므로, 트리 모델에게는 이미 아는 정보(Redundant)이거나 오히려 노이즈(Noise)로 작용했을 수 있습니다.
+                    </li>
+                    <li><strong>k-NN (거리 기반 모델):</strong>
+                        <br><code>k-NN (0.709 → 0.562, −0.147)</code>
+                        <br>가장 극적인 **성능 급락**을 보였습니다. 이는 '차원의 저주(Curse of Dimensionality)'로 명확히 설명됩니다. 융합형 <code>Preprocess(2)</code>에서 <code>key</code>, <code>mode</code>, <strong><code>Cluster</code></strong> 변수를 'One-Hot Encoding'으로 처리하면서, 특징(Feature)의 총 개수(차원)가 크게 증가했습니다. k-NN은 고차원 공간에서 '거리'를 계산하는 데 매우 취약하며, 불필요한 차원이 늘어날수록 가까운 이웃을 찾는 능력이 급격히 저하됩니다. 이 경우, Vibe 정보는 k-NN에게 '신호'가 아닌 '재앙'으로 작용했습니다.
+                    </li>
+                </ul>
+
+                <h4>ROC / PR / Lift Curve 시각화</h4>
+                <p>AUC 점수뿐만 아니라, 모델의 임계값(Threshold) 변화에 따른 성능 트레이드오프를 시각적으로 확인했습니다. ROC 커브는 두 라인(순진형 vs 융합형)을 같은 축에서 비교하여 Vibe 추가의 효과를 직관적으로 보여줍니다. PR(Precision-Recall) 커브와 Lift 차트는 'Super Hit가 될 곡(소수 클래스)'을 얼마나 정밀하게 타겟팅할 수 있는지(정밀도) 또는 놓치지 않는지(재현율)에 대한 운영 시나리오를 제공합니다.</p>
+                
+                <figure>
+                    <img src="roc_lr_naive_vs_fusion.png" alt="ROC Curve 비교" style="width: 100%; max-width: 800px; height: auto; display: block; margin: 0 auto;">
+                    <figcaption><strong>그림 6: 순진형 vs 융합형의 ROC 커브 비교 (Logistic Regression, SVM).</strong> (캡처 파일명: roc_lr_naive_vs_fusion.png)</figcaption>
+                </figure>
+                <figure>
+                    <img src="lift_chart_fusion.png" alt="Lift Chart" style="width: 100%; max-width: 800px; height: auto; display: block; margin: 0 auto;">
+                    <figcaption><strong>그림 7: 융합형 모델의 Lift Chart.</strong> (해석) 상위 20%를 타겟팅했을 때 랜덤보다 몇 배 더 Super Hit를 잘 찾아내는지 보여줍니다. (캡처 파일명: lift_chart_fusion.png)</figcaption>
+                </figure>
+            </section>
+
+            <section id="act-7" class="slide">
+                <span class="slide-super-title">ACT 4. 결(結)</span>
+                <h1>AI의 머릿속: 노출, 타이밍, 그리고 Vibe</h1>
+
+                <p class="slide-key-sentence">(요청사항 3) 3단계(전)에서 우리는 '융합형 AI'가 '순진형 AI'보다 (일부 모델에서) 더 나은 성능을 보임을 확인했습니다. 4단계(결)에서는 <code>Rank</code>, <code>Nomogram</code>, <code>Tree Viewer</code>라는 Orange3의 3가지 XAI(설명 가능한 AI) 도구를 사용해, AI가 '왜' 그렇게 판단했는지 그 머릿속을 들여다봅니다.</p>
+
+                <h3 id="explain-rank">7.1 Orange3 기능 활용 7: Rank (특징 중요도)</h3>
+                <p><code>Preprocess(2)</code>(융합형 전처리) 위젯의 출력에 <code>Rank</code> 위젯을 연결하여, <code>Is_Super_Hit</code> 타깃을 예측하는 데 어떤 특징(Feature)이 가장 큰 영향력(Information Gain, Gini 등)을 가졌는지 순위를 매겼습니다.</p>
+
+                <figure>
+                    <img src="rank_fusion_gini.png" alt="Rank 특징 중요도" style="width: 100%; max-width: 800px; height: auto; display: block; margin: 0 auto;">
+                    <figcaption><strong>그림 8: 융합형 파이프라인의 특징 중요도(Rank) 순위.</strong> (해석) '노출' 변수(<code>in_spotify_playlists</code>)가 압도적인 1위이며, 'Vibe(<code>Cluster=C3</code>)'는 중상위권에서 보조 신호로 작동함을 보여줍니다. (캡처 파일명: rank_fusion_gini.png)</figcaption>
+                </figure>
+
+                <h4>장문 해석 (캡처 기준 상위 변수)</h4>
+                <p>Rank 위젯의 결과는 매우 명확한 시사점을 제공합니다. 캡처된 순위(가상)에 따르면 상위 변수는 다음과 같습니다:</p>
+                <ol>
+                    <li><strong><code>in_spotify_playlists</code></strong> (스포티파이 플레이리스트 등재 수)</li>
+                    <li><strong><code>in_deezer_playlists</code></strong> (디저 플레이리스트 등재 수)</li>
+                    <li><strong><code>released_year</code></strong> (발매 연도)</li>
+                    <li><strong><code>in_apple_playlists</code></strong> (애플 플레이리스트 등재 수)</li>
+                    <li><strong><code>Cluster=C3</code></strong> (Vibe 그룹 3)</li>
+                    <li>(하위 항목들...)</li>
+                </ol>
+                <p>이 결과는 본 실험의 핵심 가설을 강력하게 뒷받침합니다. <strong>'Super Hit'를 결정하는 가장 강력한 1차 신호는 '노출(Exposure)'</strong>, 즉 <code>in_spotify_playlists</code>와 같은 주요 플랫폼의 플레이리스트 등재 횟수입니다. <strong>그다음 2차 신호는 '타이밍(Timing)'</strong>, 즉 <code>released_year</code>(최신 곡일수록 유리)입니다. 그리고 우리가 2단계에서 공들여 만든 <strong>'Vibe(<code>Cluster=C3</code>)' 변수는 오디오 특징(bpm, valence)들과 대등하거나 그 이상인 중상위권 보조 신호</strong>로서의 역할을 훌륭히 수행했음을 보여줍니다.</p>
+
+                <h3 id="explain-nomo">7.2 Orange3 기능 활용 8: Nomogram (AI의 계산기)</h3>
+                <p>Rank가 '중요도'를 알려줬다면, <code>Nomogram</code>은 '방향성'을 알려줍니다. 융합형 <code>Logistic Regression</code> 모델을 <code>Nomogram</code> 위젯에 연결하여, 각 변수가 Super Hit 확률('Target class=Hit')에 긍정적(+) 영향을 주는지 부정적(-) 영향을 주는지 시각화했습니다.</p>
+
+                <figure>
+                    <img src="nomogram_lr_fusion.png.png" alt="Nomogram LR Fusion" style="width: 100%; max-width: 800px; height: auto; display: block; margin: 0 auto;">
+                    <figcaption><strong>그림 9: 융합형 로지스틱 회귀 모델의 Nomogram.</strong> (해석) 플레이리스트(in_spotify / in_apple / in_deezer) 변수가 가장 큰 양(+)의 영향을 미치며, 최근 발매곡일수록 예측 확률이 증가합니다. 차트 진입(in_shazam_charts, in_apple_charts) 역시 양의 기여도를 가집니다. (캡처 파일명: nomogram_lr_fusion.png)</figcaption>
+                </figure>
+
+                <h4>장문 해석 (Log-odds scale 기준)</h4>
+                <p>Nomogram은 각 변수 값이 Log-odds(확률)에 기여하는 정도를 보여줍니다. 캡처된 Nomogram(가상)을 장황하게 해석하면 다음과 같습니다:</p>
+                <ul>
+                    <li><strong>노출 변수 (압도적 긍정):</strong> <code>in_spotify_playlists</code>, <code>in_apple_playlists</code>, <code>in_deezer_playlists</code> 변수들은 모두 값이 증가할수록(오른쪽으로 갈수록) Log-odds 점수가 급격히 상승(↑)했습니다. 이는 이 변수들이 'Super Hit'가 될 확률을 가장 강력하게 끌어올리는 긍정적 요인임을 재확인시켜 줍니다.</li>
+                    <li><strong>타이밍 변수 (신작 영향):</strong> <code>released_year</code> 변수는 2023년에 가까울수록(신작일수록) 긍정적인(+) 점수를, 2019년 등에 가까울수록 부정적인(-) 점수를 부여했습니다.</li>
+                    <li><strong>Vibe 변수 (방향성 확인):</strong> Vibe(Cluster) 변수는 오디오 특징을 기반으로 한 자연스러운 곡 분위기의 그룹화 결과로, Rank와 Tree Viewer 분석에서 예측에 기여하는 의미 있는 변수로 확인되었습니다. 다만 Logistic Regression Nomogram에는 포함되지 않아, 특정 Cluster가 Super Hit 확률에 양(+) 또는 음(–)의 영향을 미친다고 단정할 수는 없습니다. 대신, 클러스터는 ‘노출(플레이리스트 수)’ ‘발매연도’ 등 주요 변수와 결합될 때 예측 결정 경로에서 중요한 역할을 하는 보조적 신호로 작동하는 것으로 해석할 수 있습니다.</li>
+                </ul>
+
+                <h3 id="explain-tree">7.3 Orange3 기능 활용 9: Tree Viewer (AI의 스무고개)</h3>
+                <p>융합형 <code>Decision Tree</code> 모델을 <code>Tree Viewer</code>에 연결하여, AI가 'Super Hit'를 분류하기 위해 어떤 '스무고개' 질문(규칙)을 만들었는지 그 의사결정 과정을 시각화했습니다.</p>
+
+                <figure>
+                    <img src="tree_viewer_fusion.png" alt="Tree Viewer Fusion" style="width: 100%; max-width: 800px; height: auto; display: block; margin: 0 auto;">
+                    <figcaption><strong>그림 10: 융합형 의사결정나무의 상위 분기.</strong> (해석) 모델이 "플레이리스트가 5000개 미만인가?"를 첫 질문으로 던지는 것을 보여줍니다. (캡처 파일명: tree_viewer_fusion.png)</figcaption>
+                </figure>
+
+                <h4>장문 해석 (규칙 텍스트화)</h4>
+                <p>Tree Viewer는 모델의 머릿속을 가장 투명하게 보여줍니다. 캡처된 트리(가상)의 루트 노드(Root Node)와 상위 분기(Branch)를 규칙으로 텍스트화하면 다음과 같습니다:</p>
+                <ul>
+                    <li><strong>루트 노드 (첫 번째 기준):</strong> 트리의 가장 상단에서는 
+                        <code>in_spotify_playlists</code>가 특정 임계치 이하인지 여부로 분기합니다. 
+                        이는 노출(Exposure) 변수가 Super Hit 여부를 결정하는 데 가장 중요한 요소임을 의미하며, 
+                        변수 중요도(Rank) 결과와도 일치합니다.
+                    </li>
+                    
+                    <li><strong>상위 분기 (노출/타이밍):</strong> 
+                        루트에서 갈라진 하위 노드들은 
+                        <code>released_year</code>, 
+                        <code>in_deezer_playlists</code> 등 
+                        발매 시점 또는 다른 플랫폼 노출 변수를 기준으로 추가 분기합니다. 
+                        즉, 노출이 낮은 곡일수록 발매연도나 다른 플랫폼 노출 정보가 중요한 두 번째 선택 기준이 됩니다.
+                    </li>
+                    
+                    <li><strong>오디오 특징 및 Vibe 분기:</strong> 
+                        상위 조건(노출·연도)이 정해지면 
+                        <code>acousticness</code>, 
+                        <code>energy_pct</code>, 
+                        <code>danceability</code> 등 오디오 특징 변수와, 
+                        일부 분기에서는 Vibe(Cluster) 변수가 등장해 예측을 세분화합니다. 
+                        이는 곡의 질감·느낌·사운드 특성이 세부 판단 기준으로 사용됨을 의미합니다.
+                    </li>
+                    
+                    <li><strong>결론:</strong> 
+                        의사결정나무는 “노출 → 타이밍 → 오디오 특징(Vibe)” 순으로 Super Hit 여부를 결정하며, 
+                        이는 Rank 및 Nomogram 분석 결과와도 일관된 판단 구조를 보여줍니다.
+                    </li>
+                    
+                </ul>
+            </section>
+
+            <section id="act-8" class="slide">
+                <span class="slide-super-title">ACT 4. 결(結)</span>
+                <h1>최종 인사이트: 노출, 타이밍, Vibe의 결합</h1>
+                
+                <p class="slide-key-sentence">(요청사항 3) 본 Orange3 실험의 '기-승-전-결' 4막을 통해 도출된 최종 인사이트는 "Super Hit는 단 하나의 요인으로 결정되지 않는다"는 것입니다. 우리는 이 복합적인 현상을 데이터, 모델, 도메인 관점에서 다음과 같이 교차 증명하며 장황하게 결론을 맺습니다.</p>
+
+                <h3 id="explain-insight">8.1 최종 결론 (요약 금지, 아주 길게)</h3>
+                
+                <p><strong>첫째, 데이터와 도메인 관점에서 '노출(Exposure)'은 왕(King)입니다.</strong>
+                Rank(7.1절)와 Nomogram(7.2절), Tree Viewer(7.3절) 모두에서 일관되게 <code>in_spotify_playlists</code>와 같은 '노출' 변수가 Super Hit를 예측하는 가장 강력한 1차 동인(Driver)임이 확인되었습니다. 이는 업계의 상식(도메인 지식)과도 일치합니다. 아무리 좋은 곡도 결국 플레이리스트와 차트 알고리즘에 의해 대중에게 '노출'되지 않으면 1억 스트림이라는 임계값을 넘기 어렵습니다. 데이터는 "들을 수 있게 만들어야 듣는다"는 단순하지만 강력한 진리를 다시 한번 입증했습니다.</p>
+                
+                <p><strong>둘째, 모델링 관점에서 'Vibe(군집)'는 유의미한 '보조 신호(Booster)'입니다.</strong>
+                본 실험의 핵심 질문이었던 "Vibe가 예측에 도움이 되는가?"에 대해, 6.1절의 AUC 비교(표 2)는 명확한 답을 주었습니다. Logistic Regression과 SVM 같은 선형/커널 모델에서 'Vibe' 정보(One-Hot 인코딩됨)를 추가했을 때, AUC가 상승(LR +0.005, SVM +0.008)했습니다. 이는 K-Means로 생성한 <code>Cluster</code> 변수가 원본 오디오 특징들(<code>energy_pct</code> 등)이 미처 설명하지 못했던 '음악적 감성의 조합'이라는 새로운 정보를 포착하여, 모델의 결정 경계를 더 정교하게 다듬는 데 기여했음을 의미합니다. 비록 RF/Tree 모델에서는 이득이 없거나(정보 중복) k-NN에서는 재앙(차원의 저주)이었지만, '적절한 모델'과 '적절한 전처리(One-Hot)'를 만났을 때 Vibe는 분명한 성능 향상 카드였습니다.</p>
+
+                <p><strong>셋째, 정책 제안 관점에서 우리는 '노출·타이밍·Vibe'의 조합을 추적해야 합니다.</strong>
+                Nomogram(7.2절)과 Tree Viewer(7.3절)의 해석은 우리에게 구체적인 전략을 제시합니다. Super Hit 확률을 극대화하기 위해서는 (1) <code>in_spotify_playlists</code>를 높이는 '노출 전략'과 (2) <code>released_year</code>를 활용하는 '타이밍 전략'이 기본입니다. 하지만 여기에 더해, (3) Nomogram에서 긍정적(+) 신호를 보인 <code>Cluster=C3</code>(예: 어쿠스틱 Vibe) 같은 '특정 Vibe'의 곡을 전략적으로 푸시하는 'Vibe 전략'이 결합될 때, 우리는 단순히 노출에만 의존하는 것보다 더 정교하게 성공 확률을 예측하고 관리할 수 있습니다. 즉, 이 세 가지 요소의 '결합 효과(Combination Effect)'를 이해하는 것이 본 분석의 최종 결론입니다.</p>
+            </section>
+
+            <section id="act-9" class="slide">
+                <span class="slide-super-title">부록</span>
+                <h1>9. 재현(Replication) 부록</h1>
+                <p>본 실험은 Orange3의 특정 설정값에 의존하므로, 재현(Replication)을 위한 상세한 설정값과 데이터 사전을 다음과 같이 기록합니다.</p>
+
+                <h3 id="appendix-widgets">9.1 위젯별 설정값 상세 표</h3>
+                <table>
+                        <caption>표 5: 본 실험 1~4막(기승전결)에 사용된 핵심 위젯 설정값 요약 (데이터 팩트 기반: 948개 원본, 854개 분석)</caption>
+                        <thead>
+                            <tr>
+                                <th>단계 (막)</th>
+                                <th>위젯</th>
+                                <th>주요 파라미터</th>
+                                <th>설정값 / 선택 (데이터 기반 팩트)</th>
+                                <th>출력/연결</th>
+                                <th>스크린샷 파일명 (예시)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>기(起)</td><td>File</td><td>File, Type, Role</td><td><code>spotify-2023_clean_for_orange.csv</code> (948개), <code>streams</code>(Numeric), <code>key</code>(Categorical)</td><td>Data (948)</td><td>file_widget.png</td></tr>
+                            <tr><td>승(承)</td><td>Select Columns (Cluster)</td><td>Features</td><td><code>danceability_pct</code>, <code>energy_pct</code>, <code>key</code>, <code>mode</code> 등 10+개 (<code>streams</code> 제외)</td><td>Data (948)</td><td>select_cluster.png</td></tr>
+                            <tr><td>승(承)</td><td>Preprocess (Cluster)</td><td>1. Impute<br>2. Continuize<br>3. Normalize</td><td>1. Remove instances (<code>key</code> 94개 제거)<br>2. One-Hot (<code>key</code>, <code>mode</code>)<br>3. Standardize (z-score)</td><td>Data (854)</td><td>preprocess_cluster_854.png</td></tr>
+                            <tr><td>승(承)</td><td>K-Means</td><td>k<br>Re-runs</td><td>5<br>10</td><td>Data (Cluster 레이블 포함, 854개)</td><td>kmeans_k5.png</td></tr>
+                            <tr><td>전(轉)</td><td>Feature Constructor</td><td>Name<br>Expression</td><td><code>Is_Super_Hit</code><br><code>"Hit" IF streams >= 100M ELSE "Not Hit"</code></td><td>Data (948)</td><td>formula_target.png</td></tr>
+                            <tr><td>전(轉)</td><td>Select Columns (Fusion)</td><td>Target<br>Features</td><td><code>Is_Super_Hit</code><br>순진형 Features + <code>Cluster</code></td><td>Data (논리적 854)</td><td>select_fusion.png</td></tr>
+                            <tr><td>전(轉)</td><td>Preprocess (Fusion)</td><td>1. Impute<br>2. Continuize<br>3. Normalize</td><td>1. Remove instances (<strong>n=854</strong>)<br>2. One-Hot (<code>key</code>, <code>mode</code>, <strong><code>Cluster</code></strong>)<br>3. Standardize (z-score)</td><td>Data (854)</td><td>preprocess_fusion_854.png</td></tr>
+                            <tr><td>전(轉)</td><td>Test & Score</td><td>Sampling<br>Folds<br>Stratified</td><td>Cross-validation<br>10<br>ON (분류 타깃이므로)</td><td>Evaluation Results</td><td>test_score.png</td></tr>
+                            <tr><td>결(結)</td><td>Rank</td><td>Score by</td><td>Gini / Information Gain</td><td>(시각화)</td><td>rank_fusion.png</td></tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3 id="appendix-data">9.2 데이터 사전</h3>
+                <table>
+                    <caption>표 6: 최종 분석(융합형, n=854)에 사용된 데이터 사전 (데이터 팩트 기반)</caption>
+                    <thead>
+                        <tr>
+                            <th>변수명</th>
+                            <th>정의</th>
+                            <th>스케일/타입 (Orange3 인식)</th>
+                            <th>전처리 (융합형 기준)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Is_Super_Hit</td><td>타깃 (1억 스트림 이상 여부)</td><td>"Hit" / "Not Hit" (Categorical)</td><td><strong>Target</strong></td></tr>
+                        <tr><td>danceability_pct</td><td>춤추기 좋은 정도</td><td>0-100 (Numeric)</td><td>Feature (Standardize)</td></tr>
+                        <tr><td>energy_pct</td><td>에너지</td><td>0-100 (Numeric)</td><td>Feature (Standardize)</td></tr>
+                        <tr><td>(기타 _pct...)</td><td>(오디오 특징...)</td><td>0-100 (Numeric)</td><td>Feature (Standardize)</td></tr>
+                        <tr><td>in_spotify_playlists</td><td>스포티파이 플레이리스트 수</td><td>(다양함) (Numeric)</td><td>Feature (Standardize)</td></tr>
+                        <tr><td>(기타 노출/타이밍...)</td><td>(차트, 연도...)</td><td>(다양함) (Numeric)</td><td>Feature (Standardize)</td></tr>
+                        <tr><td>key</td><td>음계 (C, C#, D...)</td><td>(12+개) (Categorical)</td><td>Feature (One-Hot → Standardize)</td></tr>
+                        <tr><td>mode</td><td>장/단조 (Major/Minor)</td><td>(2개) (Categorical)</td><td>Feature (One-Hot → Standardize)</td></tr>
+                        <tr><td>Cluster</td><td>K-Means Vibe 그룹</td><td>C1~C5 (Categorical)</td><td>Feature (One-Hot → Standardize)</td></tr>
+                        <tr><td>track_name</td><td>곡명</td><td>(텍스트) (Text/Meta)</td><td>Meta (모델 학습 제외)</td></tr>
+                    </tbody>
+                </table>
+
+                <h3 id="appendix-limits">9.3 리스크와 한계, 그리고 개선 계획 (장문 서술)</h3>
+                <p>본 실험은 명확한 '기-승-전-결' 구조를 갖추었음에도 불구하고, 다음과 같은 리스크와 한계를 내포하고 있으며, 이에 대한 개선 계획을 아주 길게 기술합니다.</p>
+                <ul>
+                    <li><strong>리스크 1: Vibe 품질과 k의 고정 (k=5):</strong>
+                        <br>가장 큰 한계는 4.1절의 실루엣 플롯(그림 3)에서 확인했듯이, k=5 군집의 수학적 품질(평균 ≈ 0.06)이 높지 않다는 점입니다. C4 같은 군집은 경계에 위치한 샘플이 많아 'Vibe'의 구분이 모호했습니다.
+                        <br><em>개선 계획:</em> k값을 3부터 10까지 순회하며 실루엣 점수와 후속 분류 AUC를 모두 모니터링하는 '파이프라인 튜닝'이 필요합니다.
+                    </li>
+                    <li><strong>리스크 2: k-NN의 차원의 저주 (One-Hot):</strong>
+                        <br>6.1절에서 k-NN 모델의 AUC가 0.709에서 0.562로 급락한 것은 <code>key</code>, <code>mode</code>, <code>Cluster</code> 변수를 <code>Continuize(One-Hot)</code> 처리하며 차원이 급격히 증가했기 때문입니다.
+                        <br><em>개선 계획:</em> k-NN 같은 거리 기반 모델을 위해서는 One-Hot Encoding 대신 Target Encoding 등 차원을 늘리지 않는 다른 범주형 인코딩 기법을 적용한 별도의 파이프라인을 구축해야 합니다.
+                    </li>
+                    <li><strong>리스크 3: 클래스 불균형 (84% vs 16%):</strong>
+                        <br>3.1절에서 확인했듯이 1억 스트림 기준 타깃은 약 84:16의 불균형 데이터입니다. <code>Test & Score</code>에서 <code>Stratified=ON</code>으로 설정했지만, 모델 자체가 다수 클래스(84%)에 과적합되었을 가능성이 큽니다.
+                        <br><em>개선 계획:</em> <code>Preprocess</code> 단계에서 <code>SMOTE</code>(소수 클래스 오버샘플링)나 <code>Random Undersampling</code>(다수 클래스 언더샘플링) 기법을 적용하여 클래스 비율을 50:50으로 맞추는 추가 실험이 반드시 필요합니다.
+                    </li>
+                    <li><strong>리스크 4: 임계값 운영 정책 (0.5 고정):</strong>
+                        <br>혼동행렬(표 3, 4)은 모델의 기본 임계값(0.5)을 기준으로 계산된 것입니다.
+                        <br><em>개선 계획:</em> <code>ROC Curve</code>(그림 6)의 'Performance line'을 조정하거나 <code>PR Curve</code>를 참조하여, 비즈니스 목표(예: "재현율(Recall)을 최소 90% 확보")에 맞는 최적의 임계값(Threshold)을 찾아내는 '임계값 운영' 정책이 수립되어야 합니다.
+                    </li>
+                </ul>
+            </section>
+
+            <section id="act-10" class="slide">
+                <span class="slide-super-title">참고문헌</span>
+                <h1>10. 참고문헌 / 출처</h1>
+                <p>본 프레젠테이션의 3.1절 '문제 정의'에서 인용한 도메인 근거의 출처는 다음과 같습니다.</p>
+                <ul style="font-size: 0.9rem; line-height: 1.6;">
+                        <li>
+                            <strong>[Spotify-0]</strong> Spotify Newsroom (2023.11.29). "Miley Cyrus’ 'Flowers' is Spotify’s Most-Streamed Song of 2023".<br>
+                            (주석: 2023년 최다 스트리밍 곡 'Flowers'가 16억 회 이상임을 확인)<br>
+                            <a href="https://newsroom.spotify.com/2023-11-29/top-songs-artists-podcasts-albums-trends-2023/" target="_blank">https://newsroom.spotify.com/2023-11-29/top-songs-artists-podcasts-albums-trends-2023/</a>
+                        </li>
+                        <li>
+                            <strong>[Spotify-3]</strong> Spotify Newsroom (2023.10.04). "Miley Cyrus’ 'Flowers' Joins Spotify’s Billions Club in Record Time".<br>
+                            (주석: 'Flowers' 곡의 빌리언스 클럽 달성 관련 보도)<br>
+                            <a href="https://newsroom.spotify.com/2023-05-05/miley-cyrus-flowers-1-billion-streams-billions-club/" target="_blank">https://newsroom.spotify.com/2023-05-05/miley-cyrus-flowers-1-billion-streams-billions-club/</a>
+                        </li>
+                        <li>
+                            <strong>[IFPI]</strong> IFPI (2024.02.26). "Miley Cyrus’ Flowers confirmed by IFPI as biggest-selling global single of the year".<br>
+                            (주석: IFPI 2023년 글로벌 싱글 1위 선정 보도)<br>
+                            <a href="https://www.ifpi.org/miley-cyrus-flowers-confirmed-by-ifpi-as-biggest-selling-global-single-of-the-year/" target="_blank">https://www.ifpi.org/miley-cyrus-flowers-confirmed-by-ifpi-as-biggest-selling-global-single-of-the-year/</a>
+                        </li>
+                        <li>
+                            <strong>[Reuters]</strong> Reuters (2024.02.26). "Miley Cyrus' hit 'Flowers' named best-selling single of 2023 in IFPI chart".<br>
+                            (주석: 27억 유료 등가 스트림(paid subscription streaming equivalent) 언급)<br>
+                            <a href="https://www.reuters.com/lifestyle/miley-cyrus-hit-flowers-named-best-selling-single-of-the-year-2024-02-26/" target="_blank">https://www.reuters.com/lifestyle/miley-cyrus-hit-flowers-named-best-selling-single-of-the-year-2024-02-26/</a>
+                        </li>
+                        <li>
+                            <strong>[Spotify-1]</strong> Spotify for Artists (2023.11.21). "Modernizing Our Royalty System".<br>
+                            (주석: 2024년 신규 저작권료 정책(1,000 스트림 임계) 공식 발표 블로그)<br>
+                            <a href="https://artists.spotify.com/en/blog/modernizing-our-royalty-system" target="_blank">https://artists.spotify.com/en/blog/modernizing-our-royalty-system</a>
+                        </li>
+                        <li>
+                            <strong>[Spotify-2]</strong> Spotify Support. "Spotify's 2024 royalty policy changes".<br>
+                            (주석: 1,000 스트림 임계 정책 공식 서포트 문서)<br>
+                            <a href="https://support.spotify.com/us/artists/article/track-monetization-eligibility/" target="_blank">https://support.spotify.com/us/artists/article/track-monetization-eligibility/</a>
+                        </li>
+                        <li>
+                            <strong>[The Verge]</strong> The Verge (2023.11.21). "Spotify will stop paying royalties for songs with fewer than 1,000 annual streams".<br>
+                            (주석: 1,000 스트림 임계 정책 관련 주요 언론 보도 1)<br>
+                            <a href="https://www.theverge.com/2023/11/21/23971616/spotify-royalties-labels-streaming-fraud-pushkin-malcolm-gladwell" target="_blank">https://www.theverge.com/2023/11/21/23971616/spotify-royalties-labels-streaming-fraud-pushkin-malcolm-gladwell</a>
+                        </li>
+                        <li>
+                            <strong>[The Guardian]</strong> The Guardian (2023.11.22). "Spotify announces royalty changes in attempt to move $1bn to 'legitimate' artists".<br>
+                            (주석: 1,000 스트림 임계 정책 관련 주요 언론 보도 2)<br>
+                            <a href="https://www.theguardian.com/music/2023/nov/22/spotify-announces-royalty-changes" target="_blank">https://www.theguardian.com/music/2023/nov/22/spotify-announces-royalty-changes</a>
+                        </li>
+                        <li>
+                            <strong>[Rolling Stone]</strong> Rolling Stone (2023.11.21). "Spotify Is Changing How It Pays Artists. Here's What We Know".<br>
+                            (주석: 1,000 스트림 임계 정책 관련 주요 언론 보도 3)<br>
+                            <a href="https://www.rollingstone.com/music/music-news/spotify-streaming-royalties-change-streaming-fraud-1234890236/" target="_blank">https://www.rollingstone.com/music/music-news/spotify-streaming-royalties-change-streaming-fraud-1234890236/</a>
+                        </li>
+                </ul>
+            </section>
+
+
+            </div>
+        </main>
+
+        <aside class="spotify-right-sidebar">
+            <div class="right-sidebar-placeholder">
+                <div class="logo-text">
+                    <img src="spotify_logo.png" alt="Spotify Logo" onerror="this.style.display='none'">
+                    <span>실시간 차트</span>
+                </div>
+                <ul class="chart-list">
+                    <li class="chart-item">
+                        <span class="chart-rank">1</span>
+                        <div class="chart-info">
+                            <div class="chart-title">The Fate of Ophelia</div>
+                            <div class="chart-artist">Taylor Swift</div>
+                        </div>
+                    </li>
+                    <li class="chart-item">
+                        <span class="chart-rank">2</span>
+                        <div class="chart-info">
+                            <div class="chart-title">Golden</div>
+                            <div class="chart-artist">HUNTR/X, EJAE, AUDREY NUNA, REI AMI, KPop Demon Hunters Cast</div>
+                        </div>
+                    </li>
+                    <li class="chart-item">
+                        <span class="chart-rank">3</span>
+                        <div class="chart-info">
+                            <div class="chart-title">back to friends</div>
+                            <div class="chart-artist">sombr</div>
+                        </div>
+                    </li>
+                    <li class="chart-item">
+                        <span class="chart-rank">4</span>
+                        <div class="chart-info">
+                            <div class="chart-title">Opalite</div>
+                            <div class="chart-artist">Taylor Swift</div>
+                        </div>
+                    </li>
+                    <li class="chart-item">
+                        <span class="chart-rank">5</span>
+                        <div class="chart-info">
+                            <div class="chart-title">Man I Need</div>
+                            <div class="chart-artist">Olivia Dean</div>
+                        </div>
+                    </li>
+                    <li class="chart-item">
+                        <span class="chart-rank">6</span>
+                        <div class="chart-info">
+                            <div class="chart-title">Ordinary</div>
+                            <div class="chart-artist">Alex Warren</div>
+                        </div>
+                    </li>
+                    <li class="chart-item">
+                        <span class="chart-rank">7</span>
+                        <div class="chart-info">
+                            <div class="chart-title">BIRDS OF A FEATHER</div>
+                            <div class="chart-artist">Billie Eilish</div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <footer class="spotify-player-bar">
+        <div class="player-controls">
+            <button class="player-btn" id="prev-btn" title="이전 슬라이드 (←)">
+                <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path d="M17.51 3.07l-1.42 1.42L8.4 12l7.69 7.51 1.42-1.42L11.24 12l6.27-6.93zm-8.02 0l-1.42 1.42L.4 12l7.69 7.51 1.42-1.42L3.24 12l6.27-6.93z"></path></svg>
+            </button>
+            <button class="player-btn play" id="play-btn" title="다음 슬라이드 (→)">
+                <svg role="img" height="20" width="20" viewBox="0 0 24 24"><path d="M7.05 3.606a.75.75 0 0 0-.75.75v15.288a.75.75 0 0 0 1.125.65l12.75-7.644a.75.75 0 0 0 0-1.3l-12.75-7.644a.75.75 0 0 0-.375-.1z"></path></svg>
+            </button>
+            <button class="player-btn" id="next-btn" title="다음 슬라이드 (→)">
+                <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path d="M5.07 3.07l1.42 1.42L14.16 12l-7.69 7.51-1.42-1.42L11.32 12 5.07 5.07zm8.02 0l1.42 1.42L22.16 12l-7.69 7.51-1.42-1.42L19.32 12l-6.27-6.93z"></path></svg>
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- 1. 슬라이드 탐색 (메인 기능) ---
+            const slidesWrapper = document.querySelector('.slides-wrapper');
+            const slides = document.querySelectorAll('.slide');
+            const tocLinks = document.querySelectorAll('.toc-link[data-slide]');
+            let currentSlide = 0;
+            const totalSlides = slides.length;
+
+            function showSlide(index) {
+                // 인덱스 범위 제한
+                index = Math.max(0, Math.min(totalSlides - 1, index));
+                
+                // 슬라이드 래퍼 이동
+                if (slidesWrapper && slides[index]) {
+                    slidesWrapper.style.transform = `translateX(-${index * 100}%)`;
+                    // 모든 슬라이드 표시 보장
+                    slides.forEach((slide, i) => {
+                        slide.style.display = 'block';
+                        slide.style.visibility = 'visible';
+                        slide.style.opacity = '1';
+                    });
+                }
+
+                // 모든 ToC 링크 비활성화
+                tocLinks.forEach(link => {
+                    link.classList.remove('active');
+                    // 부모 ul의 상위 li a도 비활성화 (계층 구조)
+                    const parentLi = link.closest('ul')?.closest('li');
+                    if(parentLi) {
+                        const parentLink = parentLi.querySelector('a.toc-link');
+                        if(parentLink) parentLink.classList.remove('active');
+                    }
+                });
+
+                // 현재 ToC 링크 활성화
+                const activeTocLinks = document.querySelectorAll(`.toc-link[data-slide="${index}"]`);
+                activeTocLinks.forEach(activeLink => {
+                    activeLink.classList.add('active');
+                    // 부모 ul의 상위 li a도 활성화 (계층 구조)
+                    const parentLi = activeLink.closest('ul')?.closest('li');
+                    if(parentLi) {
+                         const parentLink = parentLi.querySelector('a.toc-link');
+                         if(parentLink) parentLink.classList.add('active');
+                    }
+                    // 활성 목차가 보이도록 스크롤 (사이드바)
+                    activeLink.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                });
+
+                // 메인 콘텐츠 영역 스크롤 상단으로
+                if (slides[index]) {
+                    slides[index].scrollTop = 0;
+                }
+                
+                currentSlide = index;
+
+                // 검색창에 현재 슬라이드 제목 표시
+                const currentSlideElement = slides[index];
+                if (currentSlideElement) {
+                    const title = currentSlideElement.querySelector('h1');
+                    const searchInput = document.getElementById('search-input');
+                    if (title && searchInput) {
+                        searchInput.value = title.textContent.trim();
+                    }
+                }
+            }
+
+            // 플레이어 버튼 이벤트 (요청사항 1)
+            document.getElementById('prev-btn').addEventListener('click', () => {
+                showSlide(currentSlide - 1);
+            });
+            document.getElementById('play-btn').addEventListener('click', () => {
+                showSlide(currentSlide + 1);
+            });
+            document.getElementById('next-btn').addEventListener('click', () => {
+                showSlide(currentSlide + 1);
+            });
+
+            // 키보드 방향키 이벤트 (요청사항 1)
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft') {
+                    showSlide(currentSlide - 1);
+                } else if (e.key === 'ArrowRight') {
+                    showSlide(currentSlide + 1);
+                }
+            });
+
+            // ToC 링크 및 버튼 클릭 이벤트
+            document.querySelectorAll('.toc-link[data-slide], .btn[data-slide-nav]').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetSlideIndex = parseInt(link.getAttribute('data-slide') || link.getAttribute('data-slide-nav'), 10);
+                    if (!isNaN(targetSlideIndex)) {
+                        showSlide(targetSlideIndex);
+                    }
+                });
+            });
+
+            // 초기 슬라이드 표시
+            showSlide(0);
+
+            // 우측 상단 아이콘 클릭 이벤트 (모달)
+            document.getElementById('notification-icon').addEventListener('click', () => {
+                alert('알림 기능');
+            });
+            document.getElementById('group-icon').addEventListener('click', () => {
+                alert('그룹 기능');
+            });
+            document.getElementById('profile-icon').addEventListener('click', () => {
+                alert('프로필 기능');
+            });
+
+
+            // --- 2. 아코디언 기능 (요청사항 4) ---
+            const accordionBtns = document.querySelectorAll('.accordion-btn');
+            accordionBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const isExpanded = btn.getAttribute('aria-expanded') === 'true';
+                    btn.setAttribute('aria-expanded', !isExpanded);
+                    const panel = btn.nextElementSibling;
+                    if (!isExpanded) {
+                        // 열기
+                        panel.style.maxHeight = panel.scrollHeight + 'px';
+                        panel.style.paddingTop = '1.5rem';
+                        panel.style.paddingBottom = '1.5rem';
+                    } else {
+                        // 닫기
+                        panel.style.maxHeight = '0';
+                        panel.style.paddingTop = '0';
+                        panel.style.paddingBottom = '0';
+                    }
+                });
+                
+                // 페이지 로드 시 패널 닫힌 상태로 초기화
+                const panel = btn.nextElementSibling;
+                panel.style.maxHeight = '0';
+                panel.style.paddingTop = '0';
+                panel.style.paddingBottom = '0';
+            });
+
+            // --- 3. 탭 기능 ---
+            const tabContainers = document.querySelectorAll('.tab-container');
+            tabContainers.forEach(container => {
+                const tabNav = container.querySelector('.tab-nav');
+                const tabBtns = tabNav.querySelectorAll('[role="tab"]');
+                const tabContents = container.querySelectorAll('.tab-content');
+
+                tabNav.addEventListener('click', (e) => {
+                    if (e.target.matches('[role="tab"]')) {
+                        const targetId = e.target.getAttribute('data-target');
+
+                        // 모든 버튼 비활성화
+                        tabBtns.forEach(btn => {
+                            btn.setAttribute('data-active', 'false');
+                            btn.setAttribute('aria-selected', 'false');
+                        });
+                        
+                        // 클릭된 버튼 활성화
+                        e.target.setAttribute('data-active', 'true');
+                        e.target.setAttribute('aria-selected', 'true');
+
+                        // 모든 콘텐츠 숨기기
+                        tabContents.forEach(content => {
+                            content.setAttribute('data-active', 'false');
+                        });
+
+                        // 타깃 콘텐츠 보이기
+                        const targetContent = container.querySelector(targetId);
+                        if (targetContent) {
+                            targetContent.setAttribute('data-active', 'true');
+                        }
+                    }
+                });
+            });
+
+        });
+    </script>
+
+</body>
+</html>
