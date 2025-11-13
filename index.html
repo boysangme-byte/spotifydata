@@ -823,28 +823,430 @@
             scrollbar-color: var(--accent-color) #000000;
         }
 
-        /* 반응형: 모바일 대응 (간략화) */
+        /* 반응형: 모바일 대응 (개선된 버전) */
         @media (max-width: 1024px) {
-            .spotify-app-container {
-                grid-template-columns: 1fr; /* 메인 콘텐츠만 표시 */
-                grid-template-rows: 1fr;
-                height: calc(100vh - var(--player-height));
+            /* 모바일 메뉴 토글 버튼 */
+            .mobile-menu-toggle {
+                display: flex;
+                position: fixed;
+                top: 1rem;
+                left: 1rem;
+                z-index: 200;
+                background: rgba(0, 0, 0, 0.9);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 8px;
+                padding: 0.75rem;
+                cursor: pointer;
+                align-items: center;
+                justify-content: center;
+                width: 44px;
+                height: 44px;
+                transition: all 0.2s ease;
             }
-            .spotify-sidebar, .spotify-right-sidebar {
-                display: none; /* 모바일에서는 사이드바 숨김 */
+            .mobile-menu-toggle:hover {
+                background: rgba(255, 255, 255, 0.1);
+            }
+            .mobile-menu-toggle svg {
+                width: 24px;
+                height: 24px;
+                fill: #ffffff;
+            }
+            
+            /* 모바일 사이드바 오버레이 배경 */
+            .mobile-sidebar-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.7);
+                z-index: 140;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s ease;
+            }
+            .mobile-sidebar-overlay.active {
+                opacity: 1;
+                pointer-events: all;
+            }
+            
+            /* 모바일 사이드바 (오버레이) - PC 스타일 덮어쓰기 */
+            .spotify-sidebar {
+                position: fixed !important;
+                top: 0 !important;
+                left: -100% !important;
+                width: 280px !important;
+                max-width: 85vw !important;
+                height: 100vh !important;
+                z-index: 150 !important;
+                transition: left 0.3s ease !important;
+                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5) !important;
+                background: #000000 !important;
+                padding: 1.5rem 1rem !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 1.5rem !important;
+                overflow-y: auto !important;
+                border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+            }
+            .spotify-sidebar.mobile-open {
+                left: 0 !important;
+            }
+            
+            /* 모바일 사이드바 닫기 버튼 */
+            .mobile-sidebar-close {
+                display: flex !important;
+                position: absolute;
+                top: 1rem;
+                right: 1rem;
+                width: 36px;
+                height: 36px;
+                background: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 6px;
+                color: #ffffff;
+                cursor: pointer;
+                align-items: center;
+                justify-content: center;
+                z-index: 10;
+                transition: all 0.2s ease;
+            }
+            .mobile-sidebar-close:hover {
+                background: rgba(255, 255, 255, 0.2);
+            }
+            .mobile-sidebar-close svg {
+                width: 20px;
+                height: 20px;
+                fill: currentColor;
+            }
+            
+            /* 레이아웃 조정 - PC 스타일 덮어쓰기 */
+            .spotify-app-container {
+                grid-template-columns: 1fr !important;
+                grid-template-rows: 1fr !important;
+                height: calc(100vh - 70px) !important; /* 모바일 플레이어 높이 */
+            }
+            .spotify-right-sidebar {
+                display: none !important;
+            }
+            
+            /* 검색창 모바일 최적화 */
+            .top-search-bar {
+                left: 0 !important;
+                right: 0 !important;
+                height: 56px !important;
+                padding: 0 1rem 0 4rem !important; /* 왼쪽에 메뉴 버튼 공간 확보 */
+            }
+            .search-input-wrapper {
+                max-width: 100%;
+            }
+            .search-input {
+                font-size: 0.9rem;
+                padding: 0.6rem 1rem 0.6rem 2.5rem;
+            }
+            .search-library-icon {
+                display: none; /* 모바일에서 숨김 */
+            }
+            
+            /* 우측 상단 아이콘 모바일 최적화 */
+            .top-right-icons {
+                height: 56px;
+                padding: 0 0.75rem;
+                gap: 1rem;
+            }
+            .top-icon {
+                width: 28px;
+                height: 28px;
+            }
+            .top-icon.profile {
+                width: 24px;
+                height: 24px;
+                font-size: 0.8rem;
+            }
+            
+            /* 슬라이드 패딩 및 타이포그래피 */
+            .slides-wrapper {
+                height: calc(100vh - 56px - 70px) !important; /* 모바일 플레이어 높이 */
+                margin-top: 56px !important;
             }
             .slide {
-                padding: 1.5rem 1rem 3rem 1rem;
+                padding: 1.5rem 1rem 5rem 1rem;
             }
-            .slide h1 { font-size: 2.5rem; }
-            .slide h2 { font-size: 1.75rem; }
+            .slide h1 {
+                font-size: 2rem;
+                line-height: 1.2;
+                margin-bottom: 1rem;
+            }
+            .slide h2 {
+                font-size: 1.5rem;
+                margin-top: 2rem;
+                padding-bottom: 0.5rem;
+            }
+            .slide h3 {
+                font-size: 1.25rem;
+                margin-top: 1.5rem;
+            }
+            .slide h4 {
+                font-size: 1.1rem;
+            }
+            .slide-key-sentence {
+                font-size: 1.1rem;
+                padding-left: 1rem;
+                margin: 1.5rem 0;
+            }
+            .slide-super-title {
+                font-size: 0.8rem;
+            }
+            
+            /* 텍스트 및 리스트 */
+            p, ul, ol {
+                font-size: 0.95rem;
+                line-height: 1.6;
+            }
+            ul, ol {
+                padding-left: 1.5rem;
+            }
+            
+            /* 테이블 모바일 최적화 */
+            table {
+                font-size: 0.8rem;
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            th, td {
+                padding: 0.5rem 0.75rem;
+                min-width: 80px;
+            }
+            
+            /* 이미지 및 피규어 */
+            figure {
+                margin: 1rem 0;
+                padding: 1rem;
+            }
+            figure.ratio-1-1 {
+                max-width: 100%;
+            }
+            figcaption {
+                font-size: 0.85rem;
+                margin-top: 0.75rem;
+            }
+            
+            /* 버튼 그룹 모바일 */
+            .btn-group {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            .btn {
+                width: 100%;
+                text-align: center;
+                padding: 0.875rem 1.5rem;
+                font-size: 0.95rem;
+            }
+            
+            /* 메타 박스 */
+            .meta-box {
+                padding: 1rem;
+                font-size: 0.85rem;
+            }
+            .meta-box ul {
+                padding-left: 1.25rem;
+            }
+            
+            /* 코드 블록 */
+            code, pre {
+                font-size: 0.85rem;
+            }
+            pre {
+                padding: 0.75rem;
+                overflow-x: auto;
+            }
+            
+            /* 탭 네비게이션 모바일 */
+            .tab-nav {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            .tab-btn {
+                padding: 0.625rem 1rem;
+                font-size: 0.9rem;
+                flex: 1;
+                min-width: calc(50% - 0.25rem);
+            }
+            
+            /* 아코디언 모바일 */
+            .accordion-btn {
+                font-size: 1rem;
+                padding: 0.875rem 1rem;
+            }
+            
+            /* 플레이어 바 모바일 최적화 */
+            .spotify-player-bar {
+                height: 70px;
+                padding: 0 0.75rem;
+                flex-wrap: wrap;
+            }
+            .player-center {
+                position: relative;
+                left: auto;
+                transform: none;
+                width: 100%;
+                max-width: 100%;
+                order: 2;
+                margin-top: 0.5rem;
+            }
+            .player-controls {
+                gap: 1rem;
+            }
+            .player-btn {
+                width: 36px;
+                height: 36px;
+            }
+            .player-btn svg {
+                width: 20px;
+                height: 20px;
+            }
+            .player-btn.play {
+                width: 44px;
+                height: 44px;
+            }
+            .progress-bar-container {
+                width: 100%;
+                gap: 0.5rem;
+            }
+            .progress-time {
+                font-size: 0.7rem;
+                min-width: 35px;
+            }
+            .progress-bar {
+                height: 3px;
+            }
+            .player-right-controls {
+                order: 1;
+                width: 100%;
+                justify-content: flex-end;
+                padding-right: 0;
+                margin-left: 0;
+                margin-bottom: 0.25rem;
+            }
+            .volume-control {
+                display: none; /* 모바일에서 볼륨 컨트롤 숨김 */
+            }
+            .media-control-btn {
+                padding: 0.375rem;
+            }
+            .media-control-btn svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+        
+        /* 모바일 메뉴 토글 버튼 (데스크톱에서는 숨김) */
+        .mobile-menu-toggle {
+            display: none;
+        }
+        
+        /* 모바일 사이드바 닫기 버튼 (데스크톱에서는 숨김) */
+        .mobile-sidebar-close {
+            display: none;
+        }
+        
+        /* 모바일 오버레이 (데스크톱에서는 숨김) */
+        .mobile-sidebar-overlay {
+            display: none;
+        }
+        
+        /* PC 레이아웃 보호 (1025px 이상) */
+        @media (min-width: 1025px) {
+            .spotify-app-container {
+                display: grid !important;
+                grid-template-columns: var(--sidebar-width) 1fr var(--right-sidebar-width) !important;
+                grid-template-rows: 1fr !important;
+                height: calc(100vh - var(--player-height)) !important;
+                width: 100% !important;
+            }
+            
+            .spotify-sidebar {
+                background: #000000 !important;
+                padding: 1.5rem 1rem !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 1.5rem !important;
+                overflow-y: auto !important;
+                height: 100% !important;
+                z-index: 10 !important;
+                border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+                position: relative !important;
+                top: auto !important;
+                left: auto !important;
+                width: var(--sidebar-width) !important;
+                max-width: none !important;
+                box-shadow: none !important;
+            }
+            
+            .spotify-right-sidebar {
+                display: block !important;
+            }
+            
+            .top-search-bar {
+                left: var(--sidebar-width) !important;
+                right: var(--right-sidebar-width) !important;
+                height: 64px !important;
+                padding: 0 2rem !important;
+            }
+            
+            .slides-wrapper {
+                height: calc(100vh - 64px - var(--player-height)) !important;
+                margin-top: 64px !important;
+            }
+            
+            .spotify-player-bar {
+                height: var(--player-height) !important;
+                padding: 0 1rem !important;
+                flex-wrap: nowrap !important;
+            }
+            
+            .player-center {
+                position: absolute !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                width: 100% !important;
+                max-width: 600px !important;
+                order: 0 !important;
+                margin-top: 0 !important;
+            }
+            
+            .player-right-controls {
+                order: 0 !important;
+                width: auto !important;
+                justify-content: flex-end !important;
+                padding-right: 1rem !important;
+                margin-left: auto !important;
+                margin-bottom: 0 !important;
+            }
+            
+            .volume-control {
+                display: flex !important;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- 모바일 메뉴 토글 버튼 -->
+    <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="메뉴 열기">
+        <svg role="img" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+
 <div class="spotify-app-container">
 
+        <!-- 모바일 사이드바 오버레이 -->
+        <div class="mobile-sidebar-overlay" id="mobile-sidebar-overlay"></div>
+
         <aside class="spotify-sidebar">
+            <!-- 모바일 사이드바 닫기 버튼 -->
+            <button class="mobile-sidebar-close" id="mobile-sidebar-close" aria-label="메뉴 닫기">
+                <svg role="img" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+            </button>
             
             <div class="logo-container">
                 <img src="spotify_logo.png" alt="Spotify Logo">
@@ -948,7 +1350,7 @@
                     <div class="meta-box">
                         <strong>프로젝트 메타 정보</strong>
                         <ul>
-                            <li><strong>데이터 출처:</strong> Spotify 2023 CSV (Kaggle) (<code>spotify-2023.csv</code>)</li>
+                            <li><strong>데이터 출처:</strong> Spotify 2023 CSV (Kaggle) (<code>spotify-2023_clean_for_orange.csv</code>)</li>
                             <li><strong>실험 도구:</strong> Orange3 Data Mining Software</li>
                             <li><strong>실험 모드:</strong> 2개 파이프라인 비교 (A/B 테스트)
                                 <ul>
@@ -1797,6 +2199,58 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
 
+            // --- 0. 모바일 메뉴 토글 기능 ---
+            const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+            const sidebar = document.querySelector('.spotify-sidebar');
+            const sidebarOverlay = document.getElementById('mobile-sidebar-overlay');
+            const sidebarClose = document.getElementById('mobile-sidebar-close');
+            
+            function openMobileMenu() {
+                if (sidebar && sidebarOverlay) {
+                    sidebar.classList.add('mobile-open');
+                    sidebarOverlay.classList.add('active');
+                    document.body.style.overflow = 'hidden'; // 스크롤 방지
+                }
+            }
+            
+            function closeMobileMenu() {
+                if (sidebar && sidebarOverlay) {
+                    sidebar.classList.remove('mobile-open');
+                    sidebarOverlay.classList.remove('active');
+                    document.body.style.overflow = ''; // 스크롤 복원
+                }
+            }
+            
+            if (mobileMenuToggle && sidebar) {
+                mobileMenuToggle.addEventListener('click', () => {
+                    if (sidebar.classList.contains('mobile-open')) {
+                        closeMobileMenu();
+                    } else {
+                        openMobileMenu();
+                    }
+                });
+            }
+            
+            if (sidebarClose) {
+                sidebarClose.addEventListener('click', closeMobileMenu);
+            }
+            
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', closeMobileMenu);
+            }
+            
+            // 사이드바 링크 클릭 시 모바일에서 메뉴 자동 닫기
+            if (sidebar) {
+                const sidebarLinks = sidebar.querySelectorAll('a.toc-link');
+                sidebarLinks.forEach(link => {
+                    link.addEventListener('click', () => {
+                        if (window.innerWidth <= 1024) {
+                            closeMobileMenu();
+                        }
+                    });
+                });
+            }
+
             // --- 1. 슬라이드 탐색 (메인 기능) ---
             const slidesWrapper = document.querySelector('.slides-wrapper');
             const slides = document.querySelectorAll('.slide');
@@ -2009,5 +2463,4 @@
     </script>
 
 </body>
-
 </html>
