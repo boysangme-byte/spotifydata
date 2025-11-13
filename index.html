@@ -64,7 +64,7 @@
             border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* 1.1.1) 로고 (요청사항 2) */
+        /* 1.1.1) 로고 */
         .logo-container {
             padding: 0.5rem 0;
             margin-bottom: 0.5rem;
@@ -226,7 +226,7 @@
         .top-right-icons {
             position: fixed;
             top: 0;
-            right: var(--right-sidebar-width);
+            right: 0;
             height: 64px;
             display: flex;
             align-items: center;
@@ -385,7 +385,7 @@
             color: #ffffff;
         }
 
-        /* --- 1.4) 하단 플레이어 바 (슬라이드 네비게이터) (요청사항 1) --- */
+        /* --- 1.4) 하단 플레이어 바 (슬라이드 네비게이터) --- */
         .spotify-player-bar {
             position: fixed;
             bottom: 0;
@@ -396,14 +396,98 @@
             border-top: 1px solid var(--border-color);
             display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 0 2rem;
+            justify-content: space-between;
+            padding: 0 1rem;
             z-index: 100;
+        }
+        .player-center {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            max-width: 600px;
+            width: 100%;
         }
         .player-controls {
             display: flex;
             align-items: center;
             gap: 1.5rem;
+            justify-content: center;
+        }
+        .progress-bar-container {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .progress-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            min-width: 40px;
+            text-align: center;
+        }
+        .progress-bar {
+            flex: 1;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            position: relative;
+            cursor: pointer;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: #ffffff;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        .player-right-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding-right: 1rem;
+            margin-left: auto;
+        }
+        .media-control-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.5rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .media-control-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+        .media-control-btn:hover {
+            color: #ffffff;
+        }
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .volume-slider {
+            width: 80px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            position: relative;
+            cursor: pointer;
+        }
+        .volume-slider-fill {
+            height: 100%;
+            background: #ffffff;
+            border-radius: 2px;
+            width: 70%;
         }
         .player-btn {
             background: none;
@@ -443,7 +527,7 @@
             margin-left: 3px; /* 재생 아이콘 중앙 정렬 */
         }
         
-        /* --- 2) 컴포넌트 스타일 (콘텐츠용) (요청사항 3) --- */
+        /* --- 2) 컴포넌트 스타일 (콘텐츠용) --- */
         h1, h2, h3, h4, h5, h6 {
             color: #ffffff;
             font-weight: 700;
@@ -478,7 +562,7 @@
             font-size: 1.25rem; 
             color: var(--text-color); 
         }
-        /* (요청사항 3) 슬라이드별 핵심 센텐스 */
+        /* 슬라이드별 핵심 센텐스 */
         .slide-key-sentence { 
             font-size: 1.3rem;
             font-weight: 500;
@@ -615,7 +699,7 @@
             border-radius: 8px;
             text-align: center;
         }
-        /* (요청사항 5) 1:1 비율 이미지 */
+        /* 1:1 비율 이미지 */
         figure.ratio-1-1 {
             width: 100%;
             max-width: 600px; /* 최대 크기 제한 */
@@ -631,7 +715,7 @@
             margin-top: 1rem;
             font-style: italic;
         }
-        figcaption strong { /* (요청사항 3) 그래프 이미지 밑에 설명 */
+        figcaption strong { /* 그래프 이미지 밑에 설명 */
             color: var(--text-color);
             font-weight: 700;
         }
@@ -687,7 +771,7 @@
         .accordion-btn:hover {
             background: var(--surface-active);
         }
-        /* (요청사항 4) Orange3 논리 보강용 스타일 */
+        /* Orange3 논리 보강용 스타일 */
         .accordion-panel .reasoning {
             border-left: 3px solid var(--accent-color);
             padding-left: 1.5rem;
@@ -859,7 +943,7 @@
                     <h1>대박 히트곡의 비밀을 찾아라!</h1>
                     <h2>Vibe 군집화(k=5, Re-runs=10)와 분류 비교(10-fold CV)로 본 ‘노출·타이밍·Vibe’의 결합 효과</h2>
                     
-                    <p class="slide-key-sentence">(요청사항 3) 이 분석은 Orange3를 활용하여 2023년 스포티파이 데이터를 '기-승-전-결'의 4막 구조로 탐험합니다. 단순한 예측을 넘어, 'Vibe'라는 숨겨진 감성적 특징이 과연 'Super Hit'를 만드는 데 유의미한 신호인지 증명하는 여정입니다.</p>
+                    <p class="slide-key-sentence">이 분석은 Orange3를 활용하여 2023년 스포티파이 데이터를 '기-승-전-결'의 4막 구조로 탐험합니다. 단순한 예측을 넘어, 'Vibe'라는 숨겨진 감성적 특징이 과연 'Super Hit'를 만드는 데 유의미한 신호인지 증명하는 여정입니다.</p>
 
                     <div class="meta-box">
                         <strong>프로젝트 메타 정보</strong>
@@ -995,7 +1079,7 @@
                 <span class="slide-super-title">ACT 2. 승(承)</span>
                 <h1>숨겨진 Vibe를 찾아서 (군집화)</h1>
                 
-                <p class="slide-key-sentence">(요청사항 3) 2단계 '승'에서는 본격적인 특징 공학(Feature Engineering)의 일환으로, 곡의 '느낌(Vibe)'을 나타내는 새로운 변수를 생성합니다. 이는 "좋은 곡은 비슷하다"는 가설을 검증하는 과정이며, Orange3의 비지도 학습(Unsupervised Learning) 기능인 <strong><code>K-Means</code> 군집화</strong>를 통해 수행되었습니다.</p>
+                <p class="slide-key-sentence">2단계 '승'에서는 본격적인 특징 공학(Feature Engineering)의 일환으로, 곡의 '느낌(Vibe)'을 나타내는 새로운 변수를 생성합니다. 이는 "좋은 곡은 비슷하다"는 가설을 검증하는 과정이며, Orange3의 비지도 학습(Unsupervised Learning) 기능인 <strong><code>K-Means</code> 군집화</strong>를 통해 수행되었습니다.</p>
 
                 <h3 id="clustering-steps">4.1 Orange3 단계: Vibe 대륙 탐험기 (k=5)</h3>
                 <p>Vibe 군집화 파이프라인은 <code>File</code> → <code>Select Columns</code> → <code>Preprocess</code> → <code>K-Means</code> → <code>Silhouette Plot</code> / <code>Scatter Plot</code> / <code>Box Plot</code> 순서로 정교하게 연결되었습니다. 각 단계의 설정과 그 이유는 다음과 같이 장황하게 기술합니다.</p>
@@ -1099,7 +1183,7 @@
                 <span class="slide-super-title">ACT 3. 전(轉)</span>
                 <h1>두 AI의 대결: 파이프라인 구축</h1>
                 
-                <p class="slide-key-sentence">(요청사항 3) 3단계 '전'에서는 본 실험의 핵심 대결인 '순진형 AI'와 '융합형 AI'의 성능을 비교합니다. 과연 2단계에서 우리가 공들여 만든 'Vibe' 변수가 'Super Hit' 예측에 실질적인 도움이 될까요? 이 질문에 답하기 위해 두 개의 독립적인 파이프라인을 구축합니다.</p>
+                <p class="slide-key-sentence">3단계 '전'에서는 본 실험의 핵심 대결인 '순진형 AI'와 '융합형 AI'의 성능을 비교합니다. 과연 2단계에서 우리가 공들여 만든 'Vibe' 변수가 'Super Hit' 예측에 실질적인 도움이 될까요? 이 질문에 답하기 위해 두 개의 독립적인 파이프라인을 구축합니다.</p>
 
                 <h3 id="model-target">5.1 Orange3 기능 활용 5: 타깃 생성 (분류 문제 정의)</h3>
                 <p>두 파이프라인의 공통 '정답지'인 <code>Is_Super_Hit</code> 변수를 생성하는 과정입니다. 이 과정은 2단계 Vibe 군집화 경로와는 완전히 독립적으로 <code>File</code> 위젯에서 직접 분기되어 데이터 누설(Leakage)을 원천 방지했습니다.</p>
@@ -1361,7 +1445,7 @@
                 <span class="slide-super-title">ACT 4. 결(結)</span>
                 <h1>AI의 머릿속: 노출, 타이밍, 그리고 Vibe</h1>
 
-                <p class="slide-key-sentence">(요청사항 3) 3단계(전)에서 우리는 '융합형 AI'가 '순진형 AI'보다 (일부 모델에서) 더 나은 성능을 보임을 확인했습니다. 4단계(결)에서는 <code>Rank</code>, <code>Nomogram</code>, <code>Tree Viewer</code>라는 Orange3의 3가지 XAI(설명 가능한 AI) 도구를 사용해, AI가 '왜' 그렇게 판단했는지 그 머릿속을 들여다봅니다.</p>
+                <p class="slide-key-sentence">3단계(전)에서 우리는 '융합형 AI'가 '순진형 AI'보다 (일부 모델에서) 더 나은 성능을 보임을 확인했습니다. 4단계(결)에서는 <code>Rank</code>, <code>Nomogram</code>, <code>Tree Viewer</code>라는 Orange3의 3가지 XAI(설명 가능한 AI) 도구를 사용해, AI가 '왜' 그렇게 판단했는지 그 머릿속을 들여다봅니다.</p>
 
                 <h3 id="explain-rank">7.1 Orange3 기능 활용 7: Rank (특징 중요도)</h3>
                 <p><code>Preprocess(2)</code>(융합형 전처리) 위젯의 출력에 <code>Rank</code> 위젯을 연결하여, <code>Is_Super_Hit</code> 타깃을 예측하는 데 어떤 특징(Feature)이 가장 큰 영향력(Information Gain, Gini 등)을 가졌는지 순위를 매겼습니다.</p>
@@ -1445,7 +1529,7 @@
                 <span class="slide-super-title">ACT 4. 결(結)</span>
                 <h1>최종 인사이트: 노출, 타이밍, Vibe의 결합</h1>
                 
-                <p class="slide-key-sentence">(요청사항 3) 본 Orange3 실험의 '기-승-전-결' 4막을 통해 도출된 최종 인사이트는 "Super Hit는 단 하나의 요인으로 결정되지 않는다"는 것입니다. 우리는 이 복합적인 현상을 데이터, 모델, 도메인 관점에서 다음과 같이 교차 증명하며 장황하게 결론을 맺습니다.</p>
+                <p class="slide-key-sentence">본 Orange3 실험의 '기-승-전-결' 4막을 통해 도출된 최종 인사이트는 "Super Hit는 단 하나의 요인으로 결정되지 않는다"는 것입니다. 우리는 이 복합적인 현상을 데이터, 모델, 도메인 관점에서 다음과 같이 교차 증명하며 장황하게 결론을 맺습니다.</p>
 
                 <h3 id="explain-insight">8.1 최종 결론 (요약 금지, 아주 길게)</h3>
                 
@@ -1656,15 +1740,56 @@
     </div>
 
     <footer class="spotify-player-bar">
-        <div class="player-controls">
-            <button class="player-btn" id="prev-btn" title="이전 슬라이드 (←)">
-                <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path d="M17.51 3.07l-1.42 1.42L8.4 12l7.69 7.51 1.42-1.42L11.24 12l6.27-6.93zm-8.02 0l-1.42 1.42L.4 12l7.69 7.51 1.42-1.42L3.24 12l6.27-6.93z"></path></svg>
+        <div class="player-center">
+            <div class="player-controls">
+                <button class="player-btn" id="shuffle-btn" title="셔플">
+                    <svg role="img" height="20" width="20" viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"></path></svg>
+                </button>
+                <button class="player-btn" id="prev-btn" title="이전 슬라이드 (←)">
+                    <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg>
+                </button>
+                <button class="player-btn play" id="play-btn" title="다음 슬라이드 (→)">
+                    <svg role="img" height="20" width="20" viewBox="0 0 24 24"><path d="M7.05 3.606a.75.75 0 0 0-.75.75v15.288a.75.75 0 0 0 1.125.65l12.75-7.644a.75.75 0 0 0 0-1.3l-12.75-7.644a.75.75 0 0 0-.375-.1z"></path></svg>
+                </button>
+                <button class="player-btn" id="next-btn" title="다음 슬라이드 (→)">
+                    <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>
+                </button>
+                <button class="player-btn" id="repeat-btn" title="반복">
+                    <svg role="img" height="20" width="20" viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"></path></svg>
+                </button>
+            </div>
+            <div class="progress-bar-container">
+                <span class="progress-time" id="current-time">0:00</span>
+                <div class="progress-bar" id="progress-bar">
+                    <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                </div>
+                <span class="progress-time" id="total-time">0:00</span>
+            </div>
+        </div>
+        
+        <div class="player-right-controls">
+            <button class="media-control-btn" id="mic-btn" title="마이크">
+                <svg role="img" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
             </button>
-            <button class="player-btn play" id="play-btn" title="다음 슬라이드 (→)">
-                <svg role="img" height="20" width="20" viewBox="0 0 24 24"><path d="M7.05 3.606a.75.75 0 0 0-.75.75v15.288a.75.75 0 0 0 1.125.65l12.75-7.644a.75.75 0 0 0 0-1.3l-12.75-7.644a.75.75 0 0 0-.375-.1z"></path></svg>
+            <button class="media-control-btn" id="queue-btn" title="대기열">
+                <svg role="img" viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"></path></svg>
             </button>
-            <button class="player-btn" id="next-btn" title="다음 슬라이드 (→)">
-                <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path d="M5.07 3.07l1.42 1.42L14.16 12l-7.69 7.51-1.42-1.42L11.32 12 5.07 5.07zm8.02 0l1.42 1.42L22.16 12l-7.69 7.51-1.42-1.42L19.32 12l-6.27-6.93z"></path></svg>
+            <button class="media-control-btn" id="cast-btn" title="캐스트">
+                <svg role="img" viewBox="0 0 24 24"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11zM21 4H3c-1.1 0-2 .9-2 2v3h2V6h18v12h-7v2h7c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z"></path></svg>
+            </button>
+            <div class="volume-control">
+                <button class="media-control-btn" id="volume-btn" title="볼륨">
+                    <svg role="img" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg>
+                </button>
+                <div class="volume-slider">
+                    <div class="volume-slider-fill"></div>
+                </div>
+            </div>
+            <button class="media-control-btn" id="pip-btn" title="화면 속 화면">
+                <svg role="img" viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm0-2H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm0 16H7V5h10v14zm-4-8h2v2h-2v-2z"></path></svg>
+            </button>
+            <button class="media-control-btn" id="fullscreen-btn" title="전체화면">
+                <svg role="img" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"></path></svg>
             </button>
         </div>
     </footer>
@@ -1735,9 +1860,36 @@
                         searchInput.value = title.textContent.trim();
                     }
                 }
+                
+                // 진행 바 업데이트
+                updateProgressBar();
+            }
+            
+            // 진행 바 업데이트 함수
+            function updateProgressBar() {
+                const progressBarFill = document.getElementById('progress-bar-fill');
+                const currentTimeEl = document.getElementById('current-time');
+                const totalTimeEl = document.getElementById('total-time');
+                
+                if (progressBarFill && currentTimeEl && totalTimeEl) {
+                    const progress = ((currentSlide + 1) / totalSlides) * 100;
+                    progressBarFill.style.width = progress + '%';
+                    
+                    // 시간 표시 (슬라이드 번호를 시간으로 변환, 각 슬라이드 = 30초 가정)
+                    const currentTotalSeconds = (currentSlide + 1) * 30;
+                    const totalTotalSeconds = totalSlides * 30;
+                    
+                    const currentMinutes = Math.floor(currentTotalSeconds / 60);
+                    const currentSeconds = currentTotalSeconds % 60;
+                    const totalMinutes = Math.floor(totalTotalSeconds / 60);
+                    const totalSeconds = totalTotalSeconds % 60;
+                    
+                    currentTimeEl.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')}`;
+                    totalTimeEl.textContent = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+                }
             }
 
-            // 플레이어 버튼 이벤트 (요청사항 1)
+            // 플레이어 버튼 이벤트
             document.getElementById('prev-btn').addEventListener('click', () => {
                 showSlide(currentSlide - 1);
             });
@@ -1747,8 +1899,14 @@
             document.getElementById('next-btn').addEventListener('click', () => {
                 showSlide(currentSlide + 1);
             });
+            document.getElementById('shuffle-btn').addEventListener('click', () => {
+                alert('셔플 기능');
+            });
+            document.getElementById('repeat-btn').addEventListener('click', () => {
+                alert('반복 기능');
+            });
 
-            // 키보드 방향키 이벤트 (요청사항 1)
+            // 키보드 방향키 이벤트
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'ArrowLeft') {
                     showSlide(currentSlide - 1);
@@ -1770,6 +1928,8 @@
 
             // 초기 슬라이드 표시
             showSlide(0);
+            // 초기 진행 바 업데이트
+            updateProgressBar();
 
             // 우측 상단 아이콘 클릭 이벤트 (모달)
             document.getElementById('notification-icon').addEventListener('click', () => {
@@ -1783,7 +1943,7 @@
             });
 
 
-            // --- 2. 아코디언 기능 (요청사항 4) ---
+            // --- 2. 아코디언 기능 ---
             const accordionBtns = document.querySelectorAll('.accordion-btn');
             accordionBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
